@@ -1,0 +1,34 @@
+/* AVATAR by julian 2025*/
+.account {
+  display: flex;
+  align-items: center;
+  margin-left: 15px;
+  position: relative;
+  cursor: pointer;
+}
+.avatar {
+  width: 35px; height: 35px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #0f172a;
+  font-weight: bold;
+  display: flex; align-items: center; justify-content: center;
+}
+.account-menu {
+  position: absolute;
+  top: 50px; right: 0;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+  display: none;
+  min-width: 160px;
+  z-index: 1002;
+}
+.account-menu a {
+  display: block;
+  padding: 10px 15px;
+  text-decoration: none;
+  color: #333;
+}
+.account-menu a:hover { background: #f1f5f9; }

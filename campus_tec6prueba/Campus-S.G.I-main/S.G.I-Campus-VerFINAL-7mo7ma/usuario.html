@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Usuario-S.G.I</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="icon" href="imagenes/icono-sgi.png" type="image/x-icon" />
+  <style>
+    body { background: #f8f9fa; }
+
+    /* ----------- MENÚ HAMBURGUESA ----------- */
+    .menu-icon {
+      font-size: 32px; cursor: pointer; background: none; border: none; color: #0059b3; margin: 10px;
+    }
+    .overlay { 
+      display: none; position: fixed; inset: 0; 
+      background: rgba(0,0,0,0.5); z-index: 1000; 
+      justify-content: flex-start; 
+    }
+    .overlay.show { display: flex; }
+    .menu-panel { 
+      background: #003b5c; padding: 20px; 
+      width: 260px; height: 100vh; 
+      display: flex; flex-direction: column; 
+      justify-content: space-between;
+      animation: slideIn 0.3s ease forwards;
+      box-shadow: 4px 0 10px rgba(0,0,0,0.3);
+    }
+    @keyframes slideIn { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+
+    .menu-top { text-align: center; color: white; margin-bottom: 20px; }
+    .menu-top img { width: 80px; margin-bottom: 10px; }
+    .menu-top h1 { font-size: 24px; margin: 0; }
+    .menu-top h2 { font-size: 14px; margin: 0; font-weight: normal; color: #cbd5e1; }
+
+    .menu-links { display: flex; flex-direction: column; gap: 15px; }
+    .menu-links a { color: white; text-decoration: none; font-size: 18px; padding: 10px 15px; border-radius: 4px; }
+    .menu-links a:hover { background: #0059b3; }
+
+    .menu-bottom { border-top: 1px solid rgba(255,255,255,0.2); padding-top: 15px; text-align: center; margin-top: 20px; }
+    .menu-bottom .avatar { margin: 0 auto; width: 35px; height: 35px; border-radius: 50%; background: #e2e8f0; color: #003b5c; display: flex; align-items: center; justify-content: center; }
+
+    .close-btn { background: transparent; border: none; font-size: 24px; color: white; cursor: pointer; position: absolute; top: 10px; right: 10px; }
+
+    h1, h2, h3 {
+      text-align: center;
+      background: #0f172a;
+      color: white;
+      margin: 30px;
+      padding: 10px;
+    }
+    h1#tit {
+      font-size: 2em;
+      border: 5px solid white;
+    }
+    /* ----------- USUARIO ----------- */
+    .avatar-placeholder { width: 120px; height: 120px; border-radius: 50%; background: #3a5a97; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 40px; font-weight: bold; }
+    .profile-image { width: 120px; height: 120px; object-fit: cover; border-radius: 50%; }
+    .extra-image { width: 150px; height: 150px; object-fit: cover; border-radius: 12px; }
+
+    .list-border li + li { border-top: 1px solid #dee2e6; padding-top: 0.5rem; margin-top: 0.5rem; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: center; font-size: 14px; }
+    th { background: #e2e8f0; font-weight: bold; }
+  </style>
+</head>
+<body>
+
+<!-- Menú hamburguesa -->
+<header>
+  <button class="menu-icon" aria-label="Abrir menú" onclick="openMenu()">☰</button>
+  <div class="overlay" id="overlay" onclick="closeMenu(event)">
+    <nav class="menu-panel" onclick="event.stopPropagation()">
+      <button class="close-btn" aria-label="Cerrar menú" onclick="closeMenu()">×</button>
+
+      <!-- Logo y nombre -->
+      <div class="menu-top">
+        <img src="imagenes/sgi.png" alt="Logo S.G.I">
+        <h1>S.G.I</h1>
+        <h2>Sistema de Gestión Institucional</h2>
+      </div>
+
+      <!-- Links -->
+      <div class="menu-links">
+        <a href="SGI.php" onclick="closeMenu()">Inicio</a>
+        <a href="lista.alumnos.html" onclick="closeMenu()">Lista de alumnos</a>
+        <a href="infoacademica.html" onclick="closeMenu()">Información académica</a>
+        <a href="materias.php" onclick="closeMenu()">Materias</a>
+        <a href="asistencia.html" onclick="closeMenu()">Asistencia</a>
+        <a href="contactos.html" onclick="closeMenu()">Contactos</a>
+      </div>
+
+      <!-- Avatar inferior -->
+      <div class="menu-bottom">
+        <div class="avatar" id="avatarMenu"></div>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<!-- Perfil -->
+<div class="container mt-5 d-flex justify-content-center">
+  <div class="d-flex align-items-center justify-content-between border rounded shadow p-3 w-100">
+
+    <!-- Usuario -->
+    <div class="d-flex align-items-center">
+      <div id="profileContainer" class="me-3"></div>
+      <div>
+        <div class="text-muted">7°7</div>
+        <h5 class="mb-0">Julian Lodolo</h5>
+        <button class="btn btn-sm btn-outline-primary mt-2" onclick="document.getElementById('userImageInput').click()">Cambiar foto</button>
+        <input type="file" id="userImageInput" accept="image/*" hidden onchange="changeUserImage(event)">
+      </div>
+    </div>
+
+    <!-- Imagen fija derecha -->
+    <div>
+      <img id="extraImage" src="imagenes/logotecn6.png" class="extra-image" alt="Imagen fija">
+    </div>
+
+  </div>
+</div>
+
+<!-- Pestañas -->
+<div class="container mt-5">
+  <ul class="nav nav-tabs justify-content-center" id="myTab" role="tablist">
+    <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#datos">Datos Personales</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#calificaciones">Calificaciones</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#boletines">Boletines</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#asistencia">Asistencia</button></li>
+  </ul>
+  <div class="tab-content mt-4">
+
+    <!-- Datos personales -->
+    <div id="datos" class="tab-pane active show">
+      <ul class="list-unstyled list-border">
+        <li><strong>Nombre:</strong> Julian Lodolo</li>
+        <li><strong>DNI:</strong> 47493312</li>
+        <li><strong>Colegio:</strong> E.E.S.T N°6 Berazategui</li>
+        <li><strong>Email:</strong> Julianlodolo@gmail.com</li>
+        <li><strong>Teléfono:</strong> 11-2583-8276</li>
+      </ul>
+    </div>
+
+    <!-- Calificaciones -->
+    <div id="calificaciones" class="tab-pane">
+      <p>Aquí se mostrarán las calificaciones...</p>
+    </div>
+
+    <!-- Boletines -->
+    <div id="boletines" class="tab-pane">
+      <section>
+        <table class="w-100 bg-white">
+          <thead>
+            <tr>
+              <th>Documento</th>
+              <th>Nombre</th>
+              <th>Valoración C1</th>
+              <th>Intensificación C1</th>
+              <th>Valoración C2</th>
+              <th>Cierre Anual</th>
+              <th>Intensificación Diciembre</th>
+              <th>Intensificación Febrero</th>
+              <th>Ampliatoria Marzo</th>
+              <th>Informe Final</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>12345678</td>
+              <td>Juan Pérez</td>
+              <td><select><option>TEP</option><option selected>TEA</option><option>TED</option></select></td>
+              <td><select><option>TEP</option><option>TEA</option><option>TED</option></select></td>
+              <td><select><option>TEP</option><option selected>TEA</option><option>TED</option></select></td>
+              <td><input type="number" min="1" max="10" value="8"></td>
+              <td><select><option></option><option>TEP</option><option>TEA</option><option>TED</option></select></td>
+              <td><select><option></option><option>TEP</option><option>TEA</option><option>TED</option></select></td>
+              <td><select><option></option><option>TEP</option><option>TEA</option><option>TED</option></select></td>
+              <td><input type="text"></td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    </div>
+
+    <!-- Asistencia -->
+    <div id="asistencia" class="tab-pane">
+      <div class="row text-center">
+        <div class="col-md-4">
+          <div class="border rounded shadow p-3 bg-white">
+            <h6>Faltas Justificadas</h6>
+            <p>0</p>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="border rounded shadow p-3 bg-white">
+            <h6>Inasistencias</h6>
+            <p>0</p>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="border rounded shadow p-3 bg-white">
+            <h6>Presentes</h6>
+            <p>0</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // Menú hamburguesa
+  function openMenu() { document.getElementById('overlay').classList.add('show'); }
+  function closeMenu(event) { if(!event || event.target.id === "overlay") document.getElementById('overlay').classList.remove('show'); }
+
+  // Iniciales del usuario en menú
+  const nombreUsuario = "Julian Lodolo";
+  document.getElementById("avatarMenu").textContent = nombreUsuario.split(" ").map(p => p[0]).join("").substring(0,2).toUpperCase();
+
+  // Usuario (iniciales/foto)
+  const userName = "Julian Lodolo";
+  const container = document.getElementById("profileContainer");
+  function getInitials(name){ return name.split(" ").map(w => w[0]).join("").toUpperCase(); }
+  function showInitials(){ container.innerHTML = `<div class="avatar-placeholder">${getInitials(userName)}</div>`; }
+  function changeUserImage(e){
+    const file = e.target.files[0];
+    if(file){
+      const reader = new FileReader();
+      reader.onload = ev => { container.innerHTML = `<img src="${ev.target.result}" class="profile-image">`; };
+      reader.readAsDataURL(file);
+    } else { showInitials(); }
+  }
+  showInitials();
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

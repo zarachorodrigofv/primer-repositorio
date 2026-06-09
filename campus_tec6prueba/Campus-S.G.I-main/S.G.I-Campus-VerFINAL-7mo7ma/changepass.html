@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cambiar contraseña - S.G.I</title>
+  <link href="changepass.css" rel="stylesheet">
+  <link rel="icon" href="imagenes/icono-sgi.png" type="image/x-icon" />
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; background: #f9f9f9; }
+    form { max-width: 400px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    input { width: 100%; padding: 10px; margin: 5px 0 15px 0; border-radius: 4px; border: 1px solid #ccc; }
+    button { padding: 10px 15px; border: none; border-radius: 4px; background: #003b5c; color: white; cursor: pointer; }
+    button:hover { background: #0059b3; }
+    #message { margin-top: 10px; font-weight: bold; }
+    #message.success { color: green; }
+    #message.error { color: red; }
+  </style>
+</head>
+<body>
+
+<h2 style="text-align:center;">Cambiar contraseña</h2>
+
+<form id="passwordChangeForm">
+  <label for="currentPassword">Contraseña actual:</label>
+  <input type="password" id="currentPassword" name="currentPassword" required>
+
+  <label for="newPassword">Nueva contraseña:</label>
+  <input type="password" id="newPassword" name="newPassword" required>
+
+  <label for="confirmPassword">Confirmar contraseña:</label>
+  <input type="password" id="confirmPassword" name="confirmPassword" required>
+
+  <button type="submit">Cambiar contraseña</button>
+
+  <p id="message"></p>
+</form>
+
+<script>
+const form = document.getElementById('passwordChangeForm');
+const message = document.getElementById('message');
+
+form.addEventListener('submit', function(e) {
+  e.preventDefault();
+
+  const formData = new FormData(form);
+
+  fetch('changepass.php', {
+    method: 'POST',
+    body: formData
+  })
+  .then(response => response.json())
+  .then(data => {
+    message.textContent = data.message;
+    if(data.status === 'success') {
+      message.className = 'success';
+      form.reset();
+    } else {
+      message.className = 'error';
+    }
+  })
+  .catch(error => {
+    message.textContent = "Ocurrió un error, intentá de nuevo.";
+    message.className = 'error';
+    console.error('Error:', error);
+  });
+});
+</script>
+
+</body>
+</html>

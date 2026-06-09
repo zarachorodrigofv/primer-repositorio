@@ -1,0 +1,71 @@
+<?php
+session_start();
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+//Leer datos del form
+$dni = isset($_POST['dni']) ? trim($_POST['dni']) : '';
+$password = isset($_POST['password']) ? (string)$_POST['password'] : '';
+
+if ($dni === '' || $password === '') {
+  echo "DNI y contraseña son obligatorios.";
+  exit;
+}
+
+//Conectar a MySQL
+$conn = new mysqli("localhost", "root", "", "campus");
+if ($conn->connect_error) {
+  die("Conexión fallida: " . $conn->connect_error);
+}
+
+//Traer usuario por DNI
+$sql = "SELECT dni, nombre, password, rol FROM usuarios WHERE dni = ?";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("i", $dni); // dni es INT en tu DB
+$stmt->execute();
+$result = $stmt->get_result();
+
+if ($result->num_rows !== 1) {
+  echo "DNI no encontrado.";
+  $stmt->close();
+  $conn->close();
+  exit;
+}
+
+$usuario = $result->fetch_assoc();
+$stmt->close();
+
+// 4) Verificar contraseña
+$hash = $usuario['password'];
+$ok = false;
+
+if (strlen($hash) >= 60 && strncmp($hash, '$2y$', 4) === 0) {
+  $ok = password_verify($password, $hash);
+} else {
+  if (hash_equals($hash, $password)) {
+    $ok = true;
+    // Migrar a hash seguro
+    $newHash = password_hash($password, PASSWORD_DEFAULT);
+    $upd = $conn->prepare("UPDATE usuarios SET password = ? WHERE dni = ?");
+    $upd->bind_param("si", $newHash, $usuario['dni']);
+    $upd->execute();
+    $upd->close();
+  }
+}
+
+if (!$ok) {
+  echo "Contraseña incorrecta.";
+  $conn->close();
+  exit;
+}
+
+$_SESSION['dni']     = (int)$usuario['dni'];
+$_SESSION['usuario'] = $usuario['nombre'];
+$_SESSION['rol']     = strtolower(trim($usuario['rol'])); // normalizamos
+
+$conn->close();
+
+//Redirigir al menú
+header("Location: SGI.php");
+exit;
+

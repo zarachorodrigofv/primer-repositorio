@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SGI - Información Académica</title>
+<link rel="icon" href="imagenes/icono-sgi.png" type="image/x-icon" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<style>
+/* ================================
+   ESTILOS GENERALES
+================================ */
+body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    margin:0;
+    padding:0;
+    background:#d8d7d7;
+    color:#333;
+}
+
+/* ================================
+   HEADER Y NAVEGACIÓN
+================================ */
+header { background:#0f172a; color:#fff; }
+.navbar {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:2px 20px;
+    position:relative;
+    flex-wrap:wrap;
+}
+.menu-icon {
+    font-size:30px;
+    cursor:pointer;
+    background:none;
+    border:none;
+    color:white;
+    margin-right:15px;
+}
+.logo { width:100px; height:auto; }
+.logo2 { width:100px; height:auto; }
+.title-box { text-align:center; flex-grow:1; }
+.title-box h1 { margin:0; font-size:30px; }
+.title-box h2 { margin:0; font-size:18px; font-weight:normal; }
+
+/* AVATAR */
+.account {
+    display:flex;
+    align-items:center;
+    position:relative;
+    cursor:pointer;
+}
+.avatar {
+    width:35px; height:35px;
+    border-radius:50%;
+    background:#e2e8f0;
+    color:#0f172a;
+    font-weight:bold;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+.account-menu {
+    position:absolute;
+    top:50px; right:0;
+    background:white;
+    border:1px solid #ddd;
+    border-radius:8px;
+    box-shadow:0 4px 10px rgba(0,0,0,0.15);
+    display:none;
+    min-width:160px;
+    z-index:1002;
+}
+.account-menu a {
+    display:block;
+    padding:10px 15px;
+    text-decoration:none;
+    color:#333;
+}
+.account-menu a:hover { background:#f1f5f9; }
+
+/* MENÚ HAMBURGUESA (Código 1) */
+.overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 1002;
+      justify-content: flex-start;
+    }
+.overlay.show { display: flex; }
+
+.menu-panel {
+      background: #003b5c;
+      padding: 20px;
+      width: 260px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      animation: slideIn 0.3s ease forwards;
+      box-shadow: 4px 0 10px rgba(0,0,0,0.3);
+      z-index: 1003;
+}
+
+@keyframes slideIn {
+      from { transform: translateX(-100%); }
+      to { transform: translateX(0); }
+}
+
+.menu-top {
+      color: white;
+      text-align: center;
+      margin-bottom: 20px;
+}
+.menu-top img {
+      width: 80px;
+      height: auto;
+      margin-bottom: 10px;
+}
+.menu-top h1 {
+      font-size: 28px;
+      margin: 0;
+}
+.menu-top h2 {
+      font-size: 14px;
+      margin: 0;
+      color: #cbd5e1;
+      font-weight: normal;
+}
+
+.menu-links {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+}
+.menu-links a {
+      color: white;
+      text-decoration: none;
+      font-size: 18px;
+      padding: 10px 15px;
+      border-radius: 4px;
+}
+.menu-links a:hover { background: #0059b3; }
+
+.menu-bottom {
+      border-top: 1px solid rgba(255,255,255,0.2);
+      padding-top: 15px;
+      text-align: center;
+      margin-top: 20px;
+}
+.menu-bottom .avatar {
+      margin: 0 auto 40px auto;
+      background: #e2e8f0;
+      color: #003b5c;
+}
+.close-btn {
+      background: transparent;
+      border: none;
+      font-size: 24px;
+      color: white;
+      cursor: pointer;
+      position: absolute;
+      top: 10px;
+      right: 10px;
+}
+ h1, h2, h3 {
+      text-align: center;
+      background: #0f172a;
+      color: white;
+      margin: 5px;
+      padding: 15px;
+    }
+    h1#tit {
+      font-size: 2em;
+      border: 5px solid white;
+    }
+h6{
+    text-align: center;
+      background: #80848f;
+      color: rgb(255, 0, 0);
+      margin: 10px;
+      padding: 15px;
+      font-size: 18px;
+}
+/* BUSCADOR */
+.busqueda-contenedor {
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    gap:10px;
+    margin:10px 0 10px;
+}
+#buscador {
+    padding:6px 12px;
+    font-size:14px;
+    border:1px solid #313131;
+    border-radius:4px;
+}
+
+/* BOTÓN AGREGAR ALUMNO */
+#btnAgregar {
+    display:block;
+    margin:15px auto;
+    padding:10px 20px;
+    font-size:14px;
+    background:#3b82f6;
+    color:#fff;
+    border:none;
+    border-radius:5px;
+    cursor:pointer;
+}
+#btnAgregar:hover { background:#2563eb; }
+
+/* FORMULARIO AGREGAR ALUMNO */
+#formulario-alumno {
+    margin:15px auto;
+    background:#fff;
+    padding:15px;
+    border-radius:6px;
+    border:1px solid #ddd;
+    display:none;
+    flex-wrap:wrap;
+    gap:10px;
+    max-width:1000px;
+}
+#formulario-alumno input {
+    padding:8px;
+    font-size:14px;
+    width:calc(25% - 12px);
+    border:1px solid #ccc;
+    border-radius:4px;
+}
+#formulario-alumno button {
+    padding:8px 15px;
+    font-size:14px;
+    cursor:pointer;
+    background:#10b981;
+    color:#fff;
+    border:none;
+    border-radius:5px;
+}
+#formulario-alumno button:hover { background:#059669; }
+
+/* TABLA */
+main { padding:20px; max-width:1200px; margin:auto; }
+table { width:100%; border-collapse:collapse; background:#fff; box-shadow:0px 2px 5px rgba(0,0,0,0.05); }
+th, td { border:1px solid #e2e8f0; padding:8px; font-size:17px; text-align:left; }
+th { background:#1e293b; color:#fff; }
+tr.extra td { background:#f9fafb; padding:0; }
+.extra-contenido { display:flex; flex-wrap:wrap; gap:10px; font-size:17px; overflow:hidden; max-height:0; transition:max-height 0.3s ease; }
+.extra-contenido p { flex:1 1 30%; margin:5px; }
+td.acciones { text-align:center; }
+td.acciones button {
+    background:#f4f4f4;
+    border:none;
+    cursor:pointer;
+    font-size:14px;
+    padding:2px 5px;
+    margin-left:3px;
+    border-radius:4px;
+    box-shadow:0 1px 2px rgba(0,0,0,0.1);
+}
+td.acciones button i.fa-edit { color:#3b82f6; }
+td.acciones button i.fa-trash { color:#ef4444; }
+td.acciones button i.fa-chevron-down, td.acciones button i.fa-chevron-up { color:#555; }
+td.acciones button:hover i.fa-edit { color:#2563eb; }
+td.acciones button:hover i.fa-trash { color:#b91c1c; }
+
+/* RESALTADO BÚSQUEDA */
+tr.resaltado td { background:#3b82f6; color:#fff; }
+
+/* FOOTER */
+footer { text-align:center; padding:10px; margin-top:20px; font-weight:bold; font-size:16px; }
+ /* --- CHAT FLOTANTE --- */
+#boton-flotante {
+  position: fixed;
+  bottom: 25px;
+  right: 25px;
+  background: linear-gradient(135deg, #0f172a, #030c5c);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 65px;
+  height: 65px;
+  font-size: 26px;
+  cursor: pointer;
+  box-shadow: 0 6px 15px rgba(0,0,0,0.3);
+  transition: all 0.3s ease;
+  z-index: 999;
+}
+#boton-flotante:hover {
+  transform: scale(1.1);
+  box-shadow: 0 8px 18px rgba(0,0,0,0.4);
+}
+
+/* Ventana flotante */
+#ventana-chat {
+  display: none;
+  position: fixed;
+  bottom: 100px;
+  right: 25px;
+  width: 340px;
+  background: white;
+  border-radius: 15px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+  overflow: hidden;
+  z-index: 1000;
+  transform: translateY(20px);
+  opacity: 0;
+  transition: all 0.3s ease;
+}
+#ventana-chat.show {
+  display: block;
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.chat-header {
+  background: linear-gradient(135deg, #0f172a, #020969);
+  color: white;
+  padding: 12px;
+  font-weight: bold;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.chat-header button {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 18px;
+  cursor: pointer;
+}
+.chat-body {
+  padding: 15px;
+  text-align: center;
+  background: #f9fafb;
+}
+.destino {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 10px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+.destino:hover {
+  background: #95a1bb;
+  transform: scale(1.03);
+}
+
+.chat-seccion .chat-body {
+  max-height: 250px;
+  overflow-y: auto;
+  text-align: left;
+  background: #f9fafb;
+}
+.mensaje {
+  background: #e7f1ff;
+  padding: 8px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  font-size: 14px;
+  animation: slideInMsg 0.3s ease;
+}
+@keyframes slideInMsg {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.chat-footer {
+  display: flex;
+  border-top: 1px solid #ccc;
+  background: white;
+}
+.chat-footer input {
+  flex: 1;
+  border: none;
+  padding: 10px;
+  outline: none;
+}
+.chat-footer button {
+  background: linear-gradient(135deg, #0f172a, #020969);
+  color: white;
+  border: none;
+  padding: 10px 14px;
+  cursor: pointer;
+  border-radius: 0 8px 8px 0;
+  transition: all 0.3s;
+}
+.chat-footer button:hover {
+  background: linear-gradient(135deg, #0f172a, #020969);
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="navbar">
+    <button class="menu-icon" aria-label="Abrir menú" onclick="openMenu()">☰</button>
+    <img src="imagenes/sgi.png" alt="logo SGI" class="logo2">
+    <div class="title-box">
+      <h1>Información Académica</h1>
+      <h2>Gestión 2025</h2>
+    </div>
+    <img src="imagenes/logotecn6.png" alt="E.E.S.T N°6" class="logo">
+    <div class="account" id="accountBtn">
+      <div class="avatar" id="avatarInitials"></div>
+      <div class="account-menu" id="accountMenu">
+        <a href="usuario.html">Perfil</a>
+        <a href="changepass.html">Cambiar Contraseña</a>
+        <a href="index.html">Cerrar sesión</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Menú hamburguesa -->
+  <div class="overlay" id="overlay" onclick="closeMenu(event)">
+    <nav class="menu-panel" onclick="event.stopPropagation()">
+      <button class="close-btn" aria-label="Cerrar menú" onclick="closeMenu()">×</button>
+
+      <div class="menu-top">
+        <img src="imagenes/sgi.png" alt="Logo SGI">
+        <h1>S.G.I</h1>
+        <h2>Sistema De Gestion Institucional</h2>
+      </div>
+
+      <div class="menu-links">
+        <a href="SGI.php" onclick="closeMenu()">Inicio</a>
+        <a href="lista.alumnos.html" onclick="closeMenu()">Lista de alumnos</a>
+        <a href="infoacademica.html" onclick="closeMenu()">Información académica</a>
+        <a href="materias.php" onclick="closeMenu()">Materias</a>
+        <a href="asistencia.html" onclick="closeMenu()">Asistencia</a>
+        <a href="contactos.html" onclick="closeMenu()">Contactos</a>
+      </div>
+
+      <div class="menu-bottom">
+        <div class="avatar" id="menuAvatarInitials"></div>
+      </div>
+    </nav>
+  </div>
+</header>
+<h6>¡¡¡ATENCION: TODA LA INFORMACION AGREGADA A LA PAGINA SE DEBE PRESENTAR EN FORMATO PAPEL PARA SU RESPECTIVO LEGAJO!!!</h6>
+<div class="busqueda-contenedor">
+<h4>Tabla de Información de Alumnos:</h4>
+<input type="text" id="buscador" placeholder="Buscar...">
+</div>
+
+<button id="btnAgregar" onclick="toggleForm()">➕ Agregar Alumno</button>
+
+<div id="formulario-alumno">
+<input type="text" id="nombre" placeholder="Apellido y Nombre">
+<input type="text" id="dni" placeholder="DNI">
+<input type="text" id="telefono" placeholder="Teléfono">
+<input type="text" id="direccion" placeholder="Dirección">
+<input type="text" id="ausente" placeholder="Ausente">
+<input type="text" id="presente" placeholder="Presente">
+<input type="text" id="tutor" placeholder="Tutor">
+<input type="text" id="tel.tutor" placeholder="telefono del tutor">
+<input type="text" id="dni.tutor" placeholder="D.N.I tutor">
+<input type="text" id="tutor" placeholder="Tutor N°2">
+<input type="text" id="tel.tutor" placeholder="telefono del tutor N°2">
+<input type="text" id="dni.tutor" placeholder="D.N.I tutor N°2">
+<input type="text" id="enfermedades" placeholder="Enfermedades">
+<input type="text" id="vacunas" placeholder="vacunas(escribir cual falta)">
+<input type="text" id="judiciales" placeholder="Problema judiciales">
+<input type="text" id="retirar" placeholder="Autorizado a retirar N°1">
+<input type="text" id="retirar" placeholder="Autorizado a retirar N°2">
+<input type="text" id="retirar" placeholder="Autorizado a retirar N°3">
+<button onclick="agregarAlumno()">Agregar</button>
+</div>
+
+<main>
+<table id="mitabla">
+<thead>
+<tr>
+<th>Apellido y Nombre</th>
+<th>DNI</th>
+<th>Ausente</th>
+<th>Presente</th>
+<th>Dirección</th>
+<th>Teléfono</th>
+<th>Acciones</th>
+</tr>
+</thead>
+<tbody id="cuerpoTabla"></tbody>
+</table>
+</main>
+ <!-- 🟦 BOTÓN Y VENTANA DE MENSAJES -->
+  <button id="boton-flotante">💬</button>
+
+  <div id="ventana-chat">
+    <!-- 🔹 SELECCIÓN DE DESTINATARIO -->
+    <div class="chat-header">
+      <h5>¿A quién querés enviar un mensaje?</h5>
+      <button id="cerrar-chat">✖</button>
+    </div>
+    <div class="chat-body" id="destinatarios">
+      <button class="destino" data-tipo="Directivos">Directivos</button>
+      <button class="destino" data-tipo="Profesor">Profesor</button>
+      <button class="destino" data-tipo="Familia">Familia</button>
+      <button class="destino" data-tipo="Familia">alumno</button>
+    </div>
+
+    <!-- 🔹 SECCIÓN DE CHAT -->
+    <div class="chat-seccion" id="chat-seccion" style="display:none;">
+      <div class="chat-header">
+        <span id="chat-titulo">Chat</span>
+        <button id="volver">⬅</button>
+      </div>
+      <div class="chat-body" id="lista-mensajes">
+        <div class="mensaje">📩 Bienvenido al chat</div>
+      </div>
+      <div class="chat-footer">
+        <input type="text" id="mensaje" placeholder="Escribe un mensaje...">
+        <button id="enviar">📤</button>
+      </div>
+    </div>
+  </div>
+
+<footer>
+<p>&copy; SGI</p>
+</footer>
+
+<script>
+// Genera iniciales avatar
+const nombreUsuario = "Julian Lodolo";
+document.getElementById("avatarInitials").textContent = nombreUsuario.split(" ").map(p => p[0]).join("").substring(0,2).toUpperCase();
+document.getElementById("menuAvatarInitials").textContent = nombreUsuario.split(" ").map(p => p[0]).join("").substring(0,2).toUpperCase();
+
+// Mostrar/ocultar menú de cuenta
+const accountBtn = document.getElementById("accountBtn");
+const accountMenu = document.getElementById("accountMenu");
+accountBtn.addEventListener("click", (e)=>{
+  e.stopPropagation();
+  accountMenu.style.display = accountMenu.style.display==="block"?"none":"block";
+});
+document.addEventListener("click", ()=> accountMenu.style.display="none");
+
+// Menú hamburguesa
+function openMenu(){ document.getElementById('overlay').classList.add('show'); }
+function closeMenu(e){ if(!e || e.target.id==="overlay") document.getElementById('overlay').classList.remove('show'); }
+
+// Mostrar/ocultar formulario
+function toggleForm(){
+    const f=document.getElementById("formulario-alumno");
+    f.style.display=(f.style.display==="none" || f.style.display==="")?"flex":"none";
+}
+
+// Crear fila alumno
+function crearFilaAlumno(datos){
+    const tbody=document.getElementById("cuerpoTabla");
+    const fila=document.createElement("tr");
+    fila.innerHTML=`
+        <td>${datos.nombre}</td>
+        <td>${datos.dni}</td>
+        <td>${datos.ausente}</td>
+        <td>${datos.presente}</td>
+        <td>${datos.direccion}</td>
+        <td>${datos.telefono}</td>
+        <td class="acciones">
+            <button onclick="editarFila(this)"><i class="fas fa-edit"></i></button>
+            <button onclick="eliminarFila(this)"><i class="fas fa-trash"></i></button>
+            <button onclick="toggleExtra(this)"><i class="fas fa-chevron-down"></i></button>
+        </td>`;
+    tbody.appendChild(fila);
+
+    const filaExtra=document.createElement("tr");
+    filaExtra.className="extra";
+    filaExtra.innerHTML=`
+    <td colspan="7">
+        <div class="extra-contenido">
+            <p><strong>Tutor:</strong> ${datos.tutor}</p>
+            <p><strong>Enfermedades:</strong> ${datos.enfermedades}</p>
+            <p><strong>Comentarios:</strong> ${datos.comentarios}</p>
+        </div>
+    </td>`;
+    tbody.appendChild(filaExtra);
+}
+
+// Agregar alumno desde formulario
+function agregarAlumno(){
+    const datos={
+        nombre:document.getElementById("nombre").value.trim(),
+        dni:document.getElementById("dni").value.trim(),
+        ausente:document.getElementById("ausente").value.trim(),
+        presente:document.getElementById("presente").value.trim(),
+        direccion:document.getElementById("direccion").value.trim(),
+        telefono:document.getElementById("telefono").value.trim(),
+        tutor:document.getElementById("tutor").value.trim(),
+        enfermedades:document.getElementById("enfermedades").value.trim(),
+        comentarios:document.getElementById("comentarios").value.trim()
+    };
+    if(!datos.nombre || !datos.dni || !datos.direccion || !datos.telefono){
+        alert("Falta completar información de alumno");
+        return;
+    }
+    crearFilaAlumno(datos);
+    document.querySelectorAll("#formulario-alumno input").forEach(i=>i.value="");
+}
+
+// Eliminar fila
+function eliminarFila(boton){
+    if(confirm("¿Seguro que quieres eliminar este alumno?")){
+        const fila=boton.closest("tr");
+        const extra=fila.nextElementSibling;
+        if(extra && extra.classList.contains("extra")) extra.remove();
+        fila.remove();
+    }
+}
+
+// Editar fila
+function editarFila(boton){
+    const fila=boton.closest("tr");
+    const extra=fila.nextElementSibling;
+    const celdas=fila.querySelectorAll("td");
+    if(boton.querySelector("i").classList.contains("fa-edit")){
+        for(let i=0;i<celdas.length-1;i++){
+            let valor=celdas[i].textContent;
+            celdas[i].innerHTML=`<input type="text" value="${valor}">`;
+        }
+        if(extra && extra.classList.contains("extra")){
+            extra.querySelectorAll(".extra-contenido p").forEach(p=>{
+                const label=p.querySelector("strong").textContent;
+                const valor=p.textContent.replace(label,"").trim();
+                p.innerHTML=`<strong>${label}</strong> <input type="text" value="${valor}">`;
+            });
+        }
+        boton.querySelector("i").classList.replace("fa-edit","fa-save");
+    }else{
+        for(let i=0;i<celdas.length-1;i++){
+            celdas[i].textContent=celdas[i].querySelector("input").value;
+        }
+        if(extra && extra.classList.contains("extra")){
+            extra.querySelectorAll(".extra-contenido p").forEach(p=>{
+                const label=p.querySelector("strong").textContent;
+                const valor=p.querySelector("input").value;
+                p.innerHTML=`<strong>${label}</strong> ${valor}`;
+            });
+            extra.querySelector(".extra-contenido").style.maxHeight="0px";
+        }
+        boton.querySelector("i").classList.replace("fa-save","fa-edit");
+    }
+}
+
+// Mostrar/ocultar fila extra
+function toggleExtra(boton){
+    const fila=boton.closest("tr");
+    const extra=fila.nextElementSibling;
+    if(extra && extra.classList.contains("extra")){
+        const contenido=extra.querySelector(".extra-contenido");
+        if(contenido.style.maxHeight && contenido.style.maxHeight!="0px"){
+            contenido.style.maxHeight="0px";
+            boton.querySelector("i").classList.replace("fa-chevron-up","fa-chevron-down");
+        }else{
+            contenido.style.maxHeight=contenido.scrollHeight+"px";
+            boton.querySelector("i").classList.replace("fa-chevron-down","fa-chevron-up");
+        }
+    }
+}
+
+// Buscar y resaltar
+document.getElementById("buscador").addEventListener("input", function(){
+    const texto=this.value.toLowerCase();
+    const filas=document.querySelectorAll("#cuerpoTabla tr:not(.extra)");
+    filas.forEach(fila=>{
+        fila.classList.remove("resaltado");
+        const celdas=fila.querySelectorAll("td");
+        celdas.forEach(td=>{
+            if(td.textContent.toLowerCase().includes(texto) && texto!=""){
+                fila.classList.add("resaltado");
+            }
+        });
+    });
+});
+ // === CHAT FLOTANTE ===
+    const botonChat = document.getElementById('boton-flotante');
+    const ventanaChat = document.getElementById('ventana-chat');
+    const cerrarChat = document.getElementById('cerrar-chat');
+    const destinatarios = document.getElementById('destinatarios');
+    const chatSeccion = document.getElementById('chat-seccion');
+    const chatTitulo = document.getElementById('chat-titulo');
+    const volver = document.getElementById('volver');
+    const listaMensajes = document.getElementById('lista-mensajes');
+    const inputMensaje = document.getElementById('mensaje');
+    const btnEnviar = document.getElementById('enviar');
+let chatAbierto=false
+// Mostrar ventana con animación
+botonChat.addEventListener('click', (e) => {
+  e.stopPropagation();
+  ventanaChat.style.display = 'block';
+  ventanaChat.classList.add('show');
+  destinatarios.style.display = 'block';
+  chatSeccion.style.display = 'none';
+  chatAbierto = true;
+});
+
+// Cerrar chat al tocar fuera
+document.addEventListener('click', (e) => {
+  if (chatAbierto && !ventanaChat.contains(e.target) && e.target !== botonChat) {
+    ventanaChat.classList.remove('show');
+    setTimeout(() => (ventanaChat.style.display = 'none'), 200);
+    chatAbierto = false;
+  }
+});
+
+// Botón cerrar
+cerrarChat.addEventListener('click', () => {
+  ventanaChat.classList.remove('show');
+  setTimeout(() => (ventanaChat.style.display = 'none'), 200);
+  chatAbierto = false;
+});
+
+// Elegir destinatario
+destinatarios.querySelectorAll('.destino').forEach((boton) => {
+  boton.addEventListener('click', () => {
+    chatTitulo.textContent = "Chat con " + boton.dataset.tipo;
+    destinatarios.style.display = 'none';
+    chatSeccion.style.display = 'block';
+  });
+});
+
+// Volver a selección
+volver.addEventListener('click', () => {
+  destinatarios.style.display = 'block';
+  chatSeccion.style.display = 'none';
+});
+
+// Enviar mensaje
+btnEnviar.addEventListener('click', () => {
+  const texto = inputMensaje.value.trim();
+  if (texto === "") return;
+  const nuevo = document.createElement('div');
+  nuevo.classList.add('mensaje');
+  nuevo.textContent ="TU: "+texto;
+  listaMensajes.appendChild(nuevo);
+  inputMensaje.value = "";
+  listaMensajes.scrollTop = listaMensajes.scrollHeight;
+});
+</script>
+
+</body>
+</html>

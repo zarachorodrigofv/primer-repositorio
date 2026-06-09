@@ -1,0 +1,54 @@
+/* ----------- BARRA DE NAVEGACIÓN SUPERIOR by julian 2025 ----------- */
+.navbar {
+  background: #0f172a;
+  color: white;
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  z-index: 1001;
+  border-radius: 15px;
+}
+
+.menu-icon {
+  font-size: 28px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  color: white;
+  margin-right: 15px;
+}
+
+.menu {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.menu a {
+  color: white;
+  text-decoration: none;
+  padding: 8px 15px;
+  font-size: 16px;
+}
+.menu a:hover {
+  background: #fff;
+  color: #000;
+}
+
+/* Celular*/
+@media (max-width: 768px) {
+  .menu {
+    display: none;
+  }
+  
+  .menu-icon {
+    display: inline-block;
+  }
+}
+
+/* Desktop */
+@media (min-width: 769px) {
+  .menu-icon {
+    display: none;
+  }
+}

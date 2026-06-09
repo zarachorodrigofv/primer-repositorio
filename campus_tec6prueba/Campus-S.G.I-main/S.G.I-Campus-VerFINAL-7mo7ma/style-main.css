@@ -1,0 +1,210 @@
+/* Fuente base y fondo general */
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  background: linear-gradient(to right, #e0f2fe, #ffffff);
+  color: #1e293b;
+  transition: background 0.3s ease, color 0.3s ease;
+  animation: fadeIn 0.7s ease-in;
+}
+.imagen-izquierda {
+  position: absolute;
+  left: 50px; /* distancia desde el borde izquierdo */
+  top: 200px; /* distancia desde el borde superior */
+  width: 300px; /* ancho de la imagen */
+  height: 300px; /* alto de la imagen */
+  background-image: url('616dd14b-3190-4390-9bea-0cd1d3a92611.png');
+  background-size: cover; /* ajusta la imagen al contenedor */
+  background-position: center;
+}
+.imagen-derecha {
+  position: absolute;
+  right: 50px; /* distancia desde el borde derecho */
+  top: 150px;
+  width: 400px;
+  height: 400px;
+  background-image: url('616dd14b-3190-4390-9bea-0cd1d3a92611.png');
+  background-size: cover;
+  background-position: center;
+}
+/* Encabezado */
+.header {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  background-color: #0f172a;;
+  color: white;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+/* Logo */
+.logo {
+  max-width: 150px;
+  height: auto;
+}
+
+/* Contenedor principal */
+.login-container {
+  max-width: 420px;
+  margin: 50px auto;
+  padding: 30px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 12px 20px rgba(0, 0, 0, 0.08);
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+/* Formularios */
+form {
+  display: flex;
+  flex-direction: column;
+}
+
+h1, h2 {
+  text-align: center;
+  color: #1e40af;
+}
+h3{
+  text-align: center;
+  font-size: 32px;
+}
+input, select, button:not(#modoToggle) {
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  font-size: 15px;
+  transition: border 0.3s;
+}
+
+input:focus, select:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+button {
+  background-color: #1d4ed8;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+  border: none;
+}
+
+button:hover {
+  background-color: #2563eb;
+}
+
+/* Barra de fuerza */
+progress {
+  margin-top: 10px;
+  height: 15px;
+  width: 100%;
+}
+
+hr {
+  margin: 30px 0;
+  border: none;
+  border-top: 1px solid #e2e8f0;
+}
+
+label {
+  margin-top: 10px;
+  font-weight: 500;
+}
+
+/* Animación al cargar */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* --- 🌙 MODO OSCURO --- */
+body.dark {
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+body.dark .header {
+  background-color: #1e293b;
+  color: #fff;
+}
+
+body.dark .login-container {
+  background: #1e293b;
+  color: #e2e8f0;
+}
+
+body.dark input, body.dark select {
+  background-color: #334155;
+  color: #e2e8f0;
+  border: 1px solid #475569;
+}
+
+body.dark button {
+  background-color: #3b82f6;
+}
+
+body.dark button:hover {
+  background-color: #60a5fa;
+}
+
+/* Modo oscuro toggle */
+#modoToggle {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  font-size: 22px;
+  background-color: #ffffffcc;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+  border-radius: 50%;
+  padding: 10px;
+  width: 45px;
+  height: 45px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  transition: transform 0.2s, background 0.3s;
+}
+
+#modoToggle:hover {
+  transform: scale(1.2);
+  background-color: #f1f5f9;
+}
+
+
+/* Responsive: se achica un poco en pantallas chicas */
+@media (max-width: 480px) {
+  #modoToggle {
+    font-size: 12px;
+    padding: 6px 12px;
+    top: 15px;
+    left: 15px;
+  }
+}
+.link-alternativo {
+  margin-top: 15px;
+  text-align: center;
+  font-size: 14px;
+}
+
+.link-alternativo a {
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.link-alternativo a:hover {
+  text-decoration: underline;
+}

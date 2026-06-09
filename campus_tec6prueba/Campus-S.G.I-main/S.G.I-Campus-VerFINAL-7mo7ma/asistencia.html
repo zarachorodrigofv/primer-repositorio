@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema de Asistencia - S.G.I</title>
+  <link rel="icon" href="imagenes/icono-sgi.png" type="image/x-icon" /> 
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #d8d7d7;
+    }
+    /* NAVBAR */
+    header {
+      background-color: #0f172a;
+      color: #fff;
+    }
+    .navbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 20px;
+      position: relative;
+      flex-wrap: wrap;
+    }
+    .menu-icon {
+      font-size: 30px;
+      cursor: pointer;
+      background: none;
+      border: none;
+      color: white;
+      margin-right: 15px;
+    }
+    .logo, .logo2 {
+      width: 100px;
+      height: auto;
+    }
+    .title-box {
+      text-align: center;
+      flex-grow: 1;
+    }
+    .title-box h1 { margin: 0; font-size: 30px; }
+    .title-box h2 { margin: 0; font-size: 20px; font-weight: normal; }
+    /* AVATAR */
+    .account {
+      display: flex;
+      align-items: center;
+      margin-left: 15px;
+      position: relative;
+      cursor: pointer;
+    }
+    .avatar {
+      width: 35px; height: 35px;
+      border-radius: 50%;
+      background: #e2e8f0;
+      color: #0f172a;
+      font-weight: bold;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .account-menu {
+      position: absolute;
+      top: 50px; right: 0;
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+      display: none;
+      min-width: 160px;
+      z-index: 1002;
+    }
+    .account-menu a {
+      display: block;
+      padding: 10px 15px;
+      text-decoration: none;
+      color: #333;
+    }
+    .account-menu a:hover { background: #f1f5f9; }
+    /* MENÚ HAMBURGUESA LATERAL */
+    .overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      justify-content: flex-start;
+    }
+    .overlay.show { display: flex; }
+    .menu-panel {
+      background: #003b5c;
+      padding: 20px;
+      width: 260px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      animation: slideIn 0.3s ease forwards;
+      box-shadow: 4px 0 10px rgba(0,0,0,0.3);
+      z-index: 1001;
+    }
+    @keyframes slideIn { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+    /* Encabezado del menú con imagen y título */
+    .menu-top {
+      text-align: center;
+      margin-bottom: 20px;
+      color: white;
+    }
+    .menu-top img {
+      width: 80px;
+      height: auto;
+      margin-bottom: 10px;
+    }
+    .menu-top h1 { margin:0; font-size: 24px; }
+    .menu-top h2 { margin:0; font-size:14px; font-weight: normal; color:#cbd5e1; }
+
+    .menu-links {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+    .menu-links a {
+      color: white;
+      text-decoration: none;
+      font-size: 18px;
+      padding: 10px 15px;
+      border-radius: 4px;
+    }
+    .menu-links a:hover { background: #0059b3; }
+
+    .menu-bottom {
+      border-top: 1px solid rgba(255,255,255,0.2);
+      padding-top: 15px;
+      text-align: center;
+      margin-top: 20px;
+    }
+    .menu-bottom .avatar {
+      margin: 0 auto 40px auto;
+      background: #e2e8f0;
+      color: #003b5c;;
+    }
+    .close-btn {
+      background: transparent;
+      border: none;
+      font-size: 24px;
+      color: white;
+      cursor: pointer;
+      position: absolute;
+      top: 10px;
+      right: 10px;
+    }
+    h1, h2, h3 {
+      text-align: center;
+      background: #0f172a;
+      color: white;
+      margin: 10px;
+      padding: 15px;
+    }
+    h1#tit {
+      font-size: 2em;
+      border: 5px solid white;
+    }
+    /* ---------- ASISTENCIA ---------- */
+    main {
+      padding: 20px;
+    }
+    .contenedor {
+      max-width: 1100px;
+      margin: auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    h5 {
+      text-align: center;
+      background: #0f172a;
+      color: white;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 20px;
+    }
+
+    #calendario { margin-top: 25px; }
+
+    /* ---------- TABLA DE ASISTENCIA ---------- */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: center;
+    }
+    th { background: #e2e8f0; }
+
+    .estado-presente { background-color: #c8f7c5; }
+    .estado-ausente { background-color: #f7c5c5; }
+    .estado-retirado { background-color: #f7e9c5; }
+    .estado-justificado { background-color: #c5d9f7; }
+
+    select, input[type="date"] {
+      padding: 5px;
+      border-radius: 5px;
+      border: 1px solid #999;
+    }
+
+    .top-bar {
+      text-align: center;
+      margin-bottom: 15px;
+    }
+    .top-bar label { font-weight: bold; }
+
+    /* ---------- BOTONES ---------- */
+    .botones {
+      text-align: center;
+      margin-bottom: 15px;
+    }
+    .botones button {
+      background: #0f172a;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 20px;
+      cursor: pointer;
+      margin: 5px;
+    }
+    .botones button:hover {
+      background: #1e293b;
+    }
+
+    /* ---------- ALERTA ---------- */
+    .alerta {
+      display: none;
+      text-align: center;
+      background: #4caf50;
+      color: white;
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+    }
+    /* --- CHAT FLOTANTE --- */
+#boton-flotante {
+  position: fixed;
+  bottom: 25px;
+  right: 25px;
+  background: linear-gradient(135deg, #0f172a, #030c5c);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 65px;
+  height: 65px;
+  font-size: 26px;
+  cursor: pointer;
+  box-shadow: 0 6px 15px rgba(0,0,0,0.3);
+  transition: all 0.3s ease;
+  z-index: 999;
+}
+#boton-flotante:hover {
+  transform: scale(1.1);
+  box-shadow: 0 8px 18px rgba(0,0,0,0.4);
+}
+
+/* Ventana flotante */
+#ventana-chat {
+  display: none;
+  position: fixed;
+  bottom: 100px;
+  right: 25px;
+  width: 340px;
+  background: white;
+  border-radius: 15px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+  overflow: hidden;
+  z-index: 1000;
+  transform: translateY(20px);
+  opacity: 0;
+  transition: all 0.3s ease;
+}
+#ventana-chat.show {
+  display: block;
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.chat-header {
+  background: linear-gradient(135deg, #0f172a, #020969);
+  font-size: 19px;
+  color: white;
+  padding: 12px;
+  font-weight: bold;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.chat-header button {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 18px;
+  cursor: pointer;
+}
+.chat-body {
+  padding: 15px;
+  text-align: center;
+  background: #f9fafb;
+}
+.destino {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 10px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+.destino:hover {
+  background: #95a1bb;
+  transform: scale(1.03);
+}
+
+.chat-seccion .chat-body {
+  max-height: 250px;
+  overflow-y: auto;
+  text-align: left;
+  background: #f9fafb;
+}
+.mensaje {
+  background: #e7f1ff;
+  padding: 8px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  font-size: 14px;
+  animation: slideInMsg 0.3s ease;
+}
+@keyframes slideInMsg {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.chat-footer {
+  display: flex;
+  border-top: 1px solid #ccc;
+  background: white;
+}
+.chat-footer input {
+  flex: 1;
+  border: none;
+  padding: 10px;
+  outline: none;
+}
+.chat-footer button {
+  background: linear-gradient(135deg, #0f172a, #020969);
+  color: white;
+  border: none;
+  padding: 10px 14px;
+  cursor: pointer;
+  border-radius: 0 8px 8px 0;
+  transition: all 0.3s;
+}
+.chat-footer button:hover {
+  background: linear-gradient(135deg, #0f172a, #020969);
+}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="navbar">
+      <button class="menu-icon" aria-label="Abrir menú" onclick="openMenu()">☰</button>
+      <img src="imagenes/sgi.png" alt="logo SGI" class="logo2">
+      <div class="title-box">
+        <h1>Boletín de Calificaciones</h1>
+        <h2>Ciclo Electivo 2025</h2>
+      </div>
+      <img src="imagenes/logotecn6.png" alt="E.E.S.T N°6" class="logo">
+      <div class="account" id="accountBtn">
+        <div class="avatar" id="avatarInitials"></div>
+        <div class="account-menu" id="accountMenu">
+          <a href="usuario.html">Perfil</a>
+          <a href="changepass.html">Ajustes</a>
+          <a href="index.html">Cerrar sesión</a>
+        </div>
+      </div>
+    </div>
+    <!-- MENÚ HAMBURGUESA LATERAL -->
+    <div class="overlay" id="overlay" onclick="closeMenu(event)">
+      <nav class="menu-panel" onclick="event.stopPropagation()">
+        <button class="close-btn" aria-label="Cerrar menú" onclick="closeMenu()">×</button>
+        <div class="menu-top">
+          <img src="imagenes/sgi.png" alt="logo SGI">
+          <h1>S.G.I</h1>
+          <h2>Sistema De Gestion Institucional</h2>
+        </div>
+        <div class="menu-links">
+          <a href="SGI.html" onclick="closeMenu()">Inicio</a>
+          <a href="lista.alumnos.html" onclick="closeMenu()">Lista de alumnos</a>
+          <a href="infoacademica.html" onclick="closeMenu()">Información académica</a>
+          <a href="Materias.html" onclick="closeMenu()">Materias</a>
+          <a href="contactos.html" onclick="closeMenu()">Contactos</a>
+        </div>
+        <div class="menu-bottom">
+          <div class="avatar" id="avatarMenuInitials"></div>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="contenedor">
+      <div class="botones">
+        <button id="guardarBtn">💾</button>
+        <button id="bloquearBtn">🔓</button>
+      </div>
+
+      <div class="alerta" id="alerta">✅ Asistencia guardada correctamente</div>
+
+      <h2>Calendario de Materias</h2>
+      <div id="calendario"></div>
+
+      <h5>Lista de Asistencia de Alumnos</h5>
+      <div class="top-bar">
+        <label for="fecha">Seleccionar día:</label>
+        <input type="date" id="fecha" value="">
+      </div>
+
+      <table id="tablaAsistencia">
+        <thead>
+          <tr>
+            <th>Alumno</th>
+            <th>Primera Hora</th>
+            <th>Segunda Hora</th>
+            <th>Tercera Hora</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </main>
+<!-- 🟦 BOTÓN Y VENTANA DE MENSAJES -->
+  <button id="boton-flotante">💬</button>
+
+  <div id="ventana-chat">
+    <!-- 🔹 SELECCIÓN DE DESTINATARIO -->
+    <div class="chat-header">
+      <h6>¿A quién querés enviar un mensaje?</h6>
+      <button id="cerrar-chat">✖</button>
+    </div>
+    <div class="chat-body" id="destinatarios">
+      <button class="destino" data-tipo="Directivos">Directivos</button>
+      <button class="destino" data-tipo="Profesor">Profesor</button>
+      <button class="destino" data-tipo="Familia">Familia</button>
+      <button class="destino" data-tipo="Familia">alumno</button>
+    </div>
+
+    <!-- 🔹 SECCIÓN DE CHAT -->
+    <div class="chat-seccion" id="chat-seccion" style="display:none;">
+      <div class="chat-header">
+        <span id="chat-titulo">Chat</span>
+        <button id="volver">⬅</button>
+      </div>
+      <div class="chat-body" id="lista-mensajes">
+        <div class="mensaje">📩 Bienvenido al chat</div>
+      </div>
+      <div class="chat-footer">
+        <input type="text" id="mensaje" placeholder="Escribe un mensaje...">
+        <button id="enviar">📤</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FullCalendar -->
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+  <script>
+    // --- Avatar iniciales ---
+    const nombreUsuario = "Julian Lodolo";
+    document.getElementById("avatarInitials").textContent = nombreUsuario.split(" ").map(p=>p[0]).join("").substring(0,2).toUpperCase();
+    document.getElementById("avatarMenuInitials").textContent = nombreUsuario.split(" ").map(p=>p[0]).join("").substring(0,2).toUpperCase();
+
+    // --- Menú cuenta ---
+    const accountBtn = document.getElementById("accountBtn");
+    const accountMenu = document.getElementById("accountMenu");
+    accountBtn.addEventListener("click", e=>{
+      e.stopPropagation();
+      accountMenu.style.display = accountMenu.style.display==="block"?"none":"block";
+    });
+    document.addEventListener("click", ()=> accountMenu.style.display="none");
+
+    // --- Menú hamburguesa ---
+    function openMenu(){ document.getElementById('overlay').classList.add('show'); }
+    function closeMenu(event){ if(event && event.target.id!=='overlay') return; document.getElementById('overlay').classList.remove('show'); }
+    // ===========================
+    // 🔹 CONFIGURACIÓN DE MATERIAS
+    // ===========================
+    const materias = [
+      { nombre: 'Matemáticas', dia: '2025-10-27', horaInicio: '07:00', horaFin: '09:00', profesorPresente: true },
+      { nombre: 'Ciencias Sociales', dia: '2025-10-28', horaInicio: '09:30', horaFin: '11:00', profesorPresente: true },
+      { nombre: 'Programación', dia: '2025-10-29', horaInicio: '13:00', horaFin: '15:00', profesorPresente: false },
+      { nombre: 'Educación Física', dia: '2025-10-30', horaInicio: '17:00', horaFin: '19:00', profesorPresente: true }
+    ];
+
+    let bloqueado = false;
+
+    // 🔹 Generar eventos para el calendario
+    function renderCalendar() {
+      const eventos = materias.map((m, i) => ({
+        id: i,
+        title: m.nombre + (m.profesorPresente ? ' ✅' : ' ❌'),
+        start: `${m.dia}T${m.horaInicio}`,
+        end: `${m.dia}T${m.horaFin}`,
+        color: m.profesorPresente ? '#2ecc71' : '#e74c3c'
+      }));
+
+      const calendarEl = document.getElementById('calendario');
+      calendarEl.innerHTML = ""; 
+      const calendar = new FullCalendar.Calendar(calendarEl, {
+        locale: 'es',
+        initialView: 'timeGridWeek',
+        slotMinTime: '07:00:00',
+        slotMaxTime: '21:00:00',
+        headerToolbar: {
+          left: 'prev,next today',
+          center: 'title',
+          right: 'dayGridMonth,timeGridWeek'
+        },
+        events: eventos,
+        eventClick: function(info) {
+          if (bloqueado) return;
+          const id = info.event.id;
+          materias[id].profesorPresente = !materias[id].profesorPresente;
+          renderCalendar();
+        }
+      });
+      calendar.render();
+    }
+
+    renderCalendar();
+
+    // ===========================
+    // 🔹 TABLA DE ASISTENCIA
+    // ===========================
+    const alumnos = ['Juan Pérez', 'Miguel Rodríguez', 'Laura Gómez', 'Sofía Díaz'];
+    const estados = ['Seleccionar', 'Presente', 'Ausente', 'Justificado', 'Retirado'];
+    const tbody = document.querySelector('#tablaAsistencia tbody');
+    const fechaInput = document.getElementById('fecha');
+
+    function cargarTabla(fecha) {
+      tbody.innerHTML = '';
+      alumnos.forEach(al => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${al}</td>
+          ${['1','2','3'].map(()=>`
+            <td>
+              <select class="estado">
+                ${estados.map(e => `<option value="${e.toLowerCase()}">${e}</option>`).join('')}
+              </select>
+            </td>
+          `).join('')}
+        `;
+        tbody.appendChild(tr);
+      });
+
+      document.querySelectorAll('.estado').forEach(sel=>{
+        sel.addEventListener('change', ()=>{
+          sel.className = 'estado';
+          if(sel.value==='presente') sel.classList.add('estado-presente');
+          if(sel.value==='ausente') sel.classList.add('estado-ausente');
+          if(sel.value==='retirado') sel.classList.add('estado-retirado');
+          if(sel.value==='justificado') sel.classList.add('estado-justificado');
+        });
+      });
+    }
+
+    fechaInput.addEventListener('change', e=>{
+      const fecha = e.target.value;
+      cargarTabla(fecha);
+    });
+
+    const hoy = new Date().toISOString().split('T')[0];
+    fechaInput.value = hoy;
+    cargarTabla(hoy);
+
+    // ===========================
+    // 🔹 BOTONES
+    // ===========================
+    const bloquearBtn = document.getElementById('bloquearBtn');
+    const guardarBtn = document.getElementById('guardarBtn');
+    const alerta = document.getElementById('alerta');
+
+    bloquearBtn.addEventListener('click', ()=>{
+      bloqueado = !bloqueado;
+      document.querySelectorAll('select').forEach(sel => sel.disabled = bloqueado);
+      bloquearBtn.textContent = bloqueado ? '🔒' : '🔓';
+      renderCalendar();
+    });
+
+    guardarBtn.addEventListener('click', ()=>{
+      if (bloqueado) {
+        alert("⚠️ No se puede guardar mientras está bloqueado.");
+        return;
+      }
+      alerta.style.display = "block";
+      setTimeout(()=> alerta.style.display = "none", 2000);
+    });
+    // === CHAT FLOTANTE ===
+    const botonChat = document.getElementById('boton-flotante');
+    const ventanaChat = document.getElementById('ventana-chat');
+    const cerrarChat = document.getElementById('cerrar-chat');
+    const destinatarios = document.getElementById('destinatarios');
+    const chatSeccion = document.getElementById('chat-seccion');
+    const chatTitulo = document.getElementById('chat-titulo');
+    const volver = document.getElementById('volver');
+    const listaMensajes = document.getElementById('lista-mensajes');
+    const inputMensaje = document.getElementById('mensaje');
+    const btnEnviar = document.getElementById('enviar');
+let chatAbierto=false
+// Mostrar ventana con animación
+botonChat.addEventListener('click', (e) => {
+  e.stopPropagation();
+  ventanaChat.style.display = 'block';
+  ventanaChat.classList.add('show');
+  destinatarios.style.display = 'block';
+  chatSeccion.style.display = 'none';
+  chatAbierto = true;
+});
+
+// Cerrar chat al tocar fuera
+document.addEventListener('click', (e) => {
+  if (chatAbierto && !ventanaChat.contains(e.target) && e.target !== botonChat) {
+    ventanaChat.classList.remove('show');
+    setTimeout(() => (ventanaChat.style.display = 'none'), 200);
+    chatAbierto = false;
+  }
+});
+
+// Botón cerrar
+cerrarChat.addEventListener('click', () => {
+  ventanaChat.classList.remove('show');
+  setTimeout(() => (ventanaChat.style.display = 'none'), 200);
+  chatAbierto = false;
+});
+
+// Elegir destinatario
+destinatarios.querySelectorAll('.destino').forEach((boton) => {
+  boton.addEventListener('click', () => {
+    chatTitulo.textContent = "Chat con " + boton.dataset.tipo;
+    destinatarios.style.display = 'none';
+    chatSeccion.style.display = 'block';
+  });
+});
+
+// Volver a selección
+volver.addEventListener('click', () => {
+  destinatarios.style.display = 'block';
+  chatSeccion.style.display = 'none';
+});
+
+// Enviar mensaje
+btnEnviar.addEventListener('click', () => {
+  const texto = inputMensaje.value.trim();
+  if (texto === "") return;
+  const nuevo = document.createElement('div');
+  nuevo.classList.add('mensaje');
+  nuevo.textContent ="TU: "+texto;
+  listaMensajes.appendChild(nuevo);
+  inputMensaje.value = "";
+  listaMensajes.scrollTop = listaMensajes.scrollHeight;
+});
+  </script>
+</body>
+</html>

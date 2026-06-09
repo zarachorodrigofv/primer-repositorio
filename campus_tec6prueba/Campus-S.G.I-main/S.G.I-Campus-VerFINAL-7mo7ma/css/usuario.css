@@ -1,0 +1,102 @@
+.list-border li + li {
+  border-top: 1px solid #dee2e6; /* gray border */
+  padding-top: 0.5rem;           /* optional spacing */
+  margin-top: 0.5rem;            /* optional spacing */
+}
+.nav-tabs .nav-link.active { 
+  color: blue;  /* tab activa color */
+  border-bottom-color: blue; /* underline color */ 
+ }
+.nav-link{
+  color: cornflowerblue; /* tab inactiva color*/
+  border: none;                    
+  border-bottom: 2px solid transparent; 
+}
+/* ----------- USUARIO ----------- */
+.avatar-placeholder { 
+width: 120px; 
+height: 120px; 
+border-radius: 50%; 
+background: #3a5a97; 
+color: #fff; 
+display: flex;
+align-items: center; 
+justify-content: center; 
+font-size: 40px; 
+font-weight: bold;
+}
+.profile-image { 
+width: 120px; 
+height: 120px; 
+object-fit: cover; 
+border-radius: 50%; 
+}
+.extra-image { 
+width: 150px; 
+height: 150px; 
+object-fit: cover; 
+border-radius: 12px; 
+}
+
+.list-border li + li { 
+border-top: 1px solid #dee2e6; 
+padding-top: 0.5rem; 
+margin-top: 0.5rem; }
+th, td { 
+border: 1px solid #ddd; 
+padding: 8px; 
+text-align: center; 
+font-size: 14px; 
+}
+th { 
+background: #e2e8f0; 
+font-weight: bold; 
+}
+
+/*Menu hamburguesa boton*/
+button.menu-icon {
+    font-size: 24px; 
+	padding: 15px; 
+	position: absolute; 
+	top: 10px; 
+	left: 5px; 
+	background: #0f172a; 
+	color: white; 
+	border: none; 
+	border-radius: 8px; 
+	cursor: pointer; 
+	z-index: 1001;
+}
+
+/* --- MOBILE STYLES --- */
+@media (max-width: 768px) {
+    /* Hamburger button bigger and easier to tap */
+    button.menu-icon {
+        font-size: 28px;
+        padding: 10px;
+        top: 8px;
+        left: 8px;
+    }
+    th, td {
+        font-size: 12px;
+        padding: 6px;
+    }
+    table {
+        display: block;
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .avatar-placeholder,
+    .profile-image {
+        width: 80px;
+        height: 80px;
+        font-size: 28px;
+    }
+
+    .extra-image {
+        width: 100px;
+        height: 100px;
+    }
+}

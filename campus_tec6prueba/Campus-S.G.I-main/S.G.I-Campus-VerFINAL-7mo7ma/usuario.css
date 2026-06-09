@@ -1,0 +1,14 @@
+.list-border li + li {
+  border-top: 1px solid #dee2e6; /* gray border */
+  padding-top: 0.5rem;           /* optional spacing */
+  margin-top: 0.5rem;            /* optional spacing */
+}
+.nav-tabs .nav-link.active { 
+  color: blue;  /* tab activa color */
+  border-bottom-color: blue; /* underline color */ 
+ }
+.nav-link{
+  color: cornflowerblue; /* tab inactiva color*/
+  border: none;                    
+  border-bottom: 2px solid transparent; 
+}

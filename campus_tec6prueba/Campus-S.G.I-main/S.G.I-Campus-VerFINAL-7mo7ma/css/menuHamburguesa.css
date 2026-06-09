@@ -1,0 +1,185 @@
+
+/* 
+   MENU HAMBURGUESA */
+
+.overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 1002;
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(4px);
+    justify-content: flex-start;
+    transition: 0.3s ease;
+}
+
+.overlay.show {
+    display: flex;
+}
+
+/*
+   PANEL LATERAL*/
+
+.menu-panel {
+    width: 310px;
+    min-height: 100vh;
+    background: linear-gradient( 180deg, #003b5c 0%, #002f4a 55%, #00253b 100%);
+    padding: 28px 22px;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid rgba(255,255,255,0.08);
+    box-shadow:8px 0 30px rgba(0,0,0,0.30);
+    overflow-y: auto;
+    scrollbar-width: none;
+    position: relative;
+    animation: slideIn 0.35s ease;
+}
+
+.menu-panel::-webkit-scrollbar {
+    display: none;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-100%);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* 
+   CABECERA */
+
+.menu-top {
+    text-align: center;
+    color: white;
+    margin-bottom: 35px;
+    padding-top: 10px;
+}
+
+.menu-top img {
+    width: 95px;
+    height: 95px;
+    object-fit: contain;
+    margin-bottom: 18px;
+    filter: drop-shadow(0 6px 12px rgba(0,0,0,.25));
+    transition: transform .3s ease;
+}
+
+.menu-top img:hover {
+    transform: scale(1.05);
+}
+
+.menu-top h1 {
+    margin: 0;
+    color: #ffffff;
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: .8px;
+}
+
+.menu-top h2 {
+    margin-top: 10px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #d8e2ec;
+    font-weight: 400;
+}
+
+/* 
+   ENLACES
+ */
+
+.menu-links {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex-grow: 1;
+}
+
+.menu-links a {
+    display: flex;
+    align-items: center;
+    padding: 15px 18px;
+    color: #ffffff;
+    text-decoration: none;
+    font-size: 15px;
+    font-weight: 500;
+    border-radius: 14px;
+    transition: background .25s ease,transform .25s ease, box-shadow .25s ease;
+}
+.menu-links a:hover {
+    background: rgba(255,255,255,.10);
+    transform: translateX(4px);
+    box-shadow: 0 4px 10px rgba(0,0,0,.15);
+}
+
+.menu-links a.active {
+    background: linear-gradient(135deg, #0078d4, #0096ff );
+    box-shadow:
+        0 6px 15px rgba(0,120,212,.35);
+}
+
+/* 
+   PIE DEL MENU
+ */
+
+.menu-bottom {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top:1px solid rgba(255,255,255,.15);
+    text-align: center;
+}
+
+.menu-bottom .avatar {
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 15px;
+    border-radius: 50%;
+    background: #ffffff;
+    color: #003b5c;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: 700;
+    border:3px solid rgba(255,255,255,.15);
+    box-shadow: 0 6px 16px rgba(0,0,0,.20);
+}
+
+.menu-bottom p {
+    margin: 0;
+    color: #d8e2ec;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+/* 
+   BOTON CERRAR
+ */
+
+.close-btn {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255,255,255,.10);
+    color: white;
+    cursor: pointer;
+    font-size: 20px;
+    transition: all .3s ease;
+}
+
+.close-btn:hover {
+    background: rgba(255,255,255,.18);
+    transform:
+        rotate(90deg)
+        scale(1.08);
+}
