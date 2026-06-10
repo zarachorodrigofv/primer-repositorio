@@ -2,10 +2,21 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-$dni = $_POST['dni'];
-$password = $_POST['password'];
-$rol = $_POST['rol'];
-$roles_permitidos = ["Alumno", "Familia"];
+$dni = trim($_POST['dni'] ?? '');
+$nombre = trim($_POST['nombre'] ?? '');
+$password = $_POST['password'] ?? '';
+$rol = strtolower(trim($_POST['rol'] ?? ''));
+$roles_permitidos = ['alumno', 'familia'];
+
+if (!in_array($rol, $roles_permitidos, true)) {
+  echo "Rol inválido.";
+  exit;
+}
+
+if ($dni === '' || $nombre === '') {
+  echo "Completá el DNI y el nombre.";
+  exit;
+}
 
 if (!preg_match("/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$/", $password)) {
   echo "La contraseña no cumple los requisitos.";
@@ -28,8 +39,8 @@ $stmt->store_result();
 if ($stmt->num_rows > 0) {
   echo "El DNI ya está registrado.";
 } else {
-  $stmt = $conn->prepare("INSERT INTO usuarios (dni, password, rol) VALUES (?, ?, ?)");
-  $stmt->bind_param("sss", $dni, $hash, $rol);
+  $stmt = $conn->prepare("INSERT INTO usuarios (dni, nombre, password, rol, password_changed) VALUES (?, ?, ?, ?, 1)");
+  $stmt->bind_param("ssss", $dni, $nombre, $hash, $rol);
   if ($stmt->execute()) {
     echo "Registro exitoso. Podés iniciar sesión.";
   } else {

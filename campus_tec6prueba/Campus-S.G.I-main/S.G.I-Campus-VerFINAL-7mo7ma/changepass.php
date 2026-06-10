@@ -9,7 +9,8 @@ if (!isset($_SESSION['usuario'])) {
     exit;
 }
 
-require_once "conexion.php"; // Incluye conexión a la base de datos
+require_once "config.php";
+$pdo = db();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dni = $_SESSION['dni'] ?? null; // Guardamos el dni en sesión al hacer login
@@ -22,33 +23,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // Buscamos el usuario por dni
-    $stmt = $conn->prepare("SELECT password FROM usuarios WHERE dni = ?");
-    $stmt->bind_param("s", $dni);
-    $stmt->execute();
-    $result = $stmt->get_result();
+    $stmt = $pdo->prepare("SELECT password FROM usuarios WHERE dni = ?");
+    $stmt->execute([$dni]);
+    $usuario = $stmt->fetch();
 
-    if ($result->num_rows === 1) {
-        $usuario = $result->fetch_assoc();
+    if ($usuario) {
         if (password_verify($currentPassword, $usuario['password'])) {
-            // Hasheamos la nueva contraseña
             $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
+            $update = $pdo->prepare("UPDATE usuarios SET password = ?, password_changed = 1 WHERE dni = ?");
+            $update->execute([$hashedPassword, $dni]);
 
-            $update = $conn->prepare("UPDATE usuarios SET password = ? WHERE dni = ?");
-            $update->bind_param("ss", $hashedPassword, $dni);
-            if ($update->execute()) {
-                echo json_encode(['status' => 'success', 'message' => 'Contraseña cambiada correctamente.']);
-            } else {
-                echo json_encode(['status' => 'error', 'message' => 'Error al actualizar la contraseña.']);
-            }
+            $_SESSION['must_change_password'] = false;
+            echo json_encode(['status' => 'success', 'message' => 'Contraseña cambiada correctamente.']);
         } else {
             echo json_encode(['status' => 'error', 'message' => 'Contraseña actual incorrecta.']);
         }
     } else {
         echo json_encode(['status' => 'error', 'message' => 'Usuario no encontrado.']);
     }
-
-    $stmt->close();
-    $conn->close();
 }
 ?>

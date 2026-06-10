@@ -474,6 +474,10 @@ function agregarAlumno(){
         return;
       }
 
+      if (j.temp_password) {
+        alert('Alumno creado correctamente.\n\nUsuario: ' + j.alumno.dni + '\nContraseña temporal: ' + j.temp_password);
+      }
+
       // Dibujamos el alumno que devolvió la API
       crearFilaAlumno(j.alumno);
 

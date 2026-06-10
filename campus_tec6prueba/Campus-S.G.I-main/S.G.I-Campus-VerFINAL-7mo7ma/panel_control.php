@@ -212,12 +212,12 @@ if (isset($_GET['del_fam'])) {
 
 // Profesores
 $profesores = [];
-$res = $conn->query("SELECT dni, nombre FROM usuarios WHERE rol='profesor' ORDER BY nombre");
+$res = $conn->query("SELECT dni, COALESCE(NULLIF(TRIM(nombre), ''), CONCAT('DNI ', dni)) AS nombre FROM usuarios WHERE rol='profesor' ORDER BY nombre");
 while ($fila = $res->fetch_assoc()) { $profesores[] = $fila; }
 
 // Preceptores
 $preceptores = [];
-$res = $conn->query("SELECT dni, nombre FROM usuarios WHERE rol='preceptor' ORDER BY nombre");
+$res = $conn->query("SELECT dni, COALESCE(NULLIF(TRIM(nombre), ''), CONCAT('DNI ', dni)) AS nombre FROM usuarios WHERE rol='preceptor' ORDER BY nombre");
 while ($fila = $res->fetch_assoc()) { $preceptores[] = $fila; }
 
 // Materias
@@ -268,7 +268,7 @@ if ($rol === 'directivo') {
 
 // Familias (usuarios rol familia)
 $familias = [];
-$res = $conn->query("SELECT dni, nombre FROM usuarios WHERE rol='familia' ORDER BY nombre");
+$res = $conn->query("SELECT dni, COALESCE(NULLIF(TRIM(nombre), ''), CONCAT('DNI ', dni)) AS nombre FROM usuarios WHERE rol='familia' ORDER BY nombre");
 while ($fila = $res->fetch_assoc()) { $familias[] = $fila; }
 
 // Alumnos activos

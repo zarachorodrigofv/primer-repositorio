@@ -19,7 +19,7 @@ if ($conn->connect_error) {
 }
 
 //Traer usuario por DNI
-$sql = "SELECT dni, nombre, password, rol FROM usuarios WHERE dni = ?";
+$sql = "SELECT dni, nombre, password, rol, password_changed FROM usuarios WHERE dni = ?";
 $stmt = $conn->prepare($sql);
 $stmt->bind_param("i", $dni); // dni es INT en tu DB
 $stmt->execute();
@@ -59,13 +59,17 @@ if (!$ok) {
   exit;
 }
 
-$_SESSION['dni']     = (int)$usuario['dni'];
-$_SESSION['usuario'] = $usuario['nombre'];
-$_SESSION['rol']     = strtolower(trim($usuario['rol'])); // normalizamos
+$_SESSION['dni']                  = (int)$usuario['dni'];
+$_SESSION['usuario']               = $usuario['nombre'];
+$_SESSION['rol']                   = strtolower(trim($usuario['rol']));
+$_SESSION['must_change_password']  = ((int)$usuario['password_changed'] === 0);
 
 $conn->close();
 
-//Redirigir al menú
-header("Location: SGI.php");
+if (!empty($_SESSION['must_change_password'])) {
+  header("Location: changepassword.html");
+} else {
+  header("Location: SGI.php");
+}
 exit;
 

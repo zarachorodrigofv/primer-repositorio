@@ -352,6 +352,23 @@ $nombreUsuario = $_SESSION['usuario'] ?? 'Usuario';
     .estado-tarde      { background-color:  #fde68a; color: #92400e;}
     .estado-justificado { background-color: #dbeafe; color: #1d4ed8; }
 
+    .dia-no-laborable {
+      background: #f3f4f6;
+      color: #9ca3af;
+      text-decoration: line-through;
+      text-decoration-thickness: 2px;
+      opacity: 0.85;
+    }
+
+    .celda-estado.no-laborable {
+      cursor: not-allowed;
+      background: #f3f4f6;
+      color: #9ca3af;
+      text-decoration: line-through;
+      text-decoration-thickness: 2px;
+      opacity: 0.85;
+    }
+
     .botones {
       text-align: center;
       margin-top: 15px;
@@ -562,8 +579,11 @@ $nombreUsuario = $_SESSION['usuario'] ?? 'Usuario';
             <th class="alumnos-col">Alumnos</th>
             <?php
               $totalDias = cal_days_in_month(CAL_GREGORIAN, $mesSeleccionado, $anioSeleccionado);
-              for ($d=1; $d<=$totalDias; $d++): ?>
-                <th class="dia-col"><?php echo $d; ?></th>
+              for ($d=1; $d<=$totalDias; $d++):
+                $fechaDia = sprintf('%04d-%02d-%02d', $anioSeleccionado, $mesSeleccionado, $d);
+                $esFinDeSemana = (date('w', strtotime($fechaDia)) == 0 || date('w', strtotime($fechaDia)) == 6);
+              ?>
+                <th class="dia-col<?php echo $esFinDeSemana ? ' dia-no-laborable' : ''; ?>"><?php echo $d; ?></th>
             <?php endfor; ?>
           </tr>
         </thead>
@@ -576,6 +596,8 @@ $nombreUsuario = $_SESSION['usuario'] ?? 'Usuario';
             <tr>
               <td style="text-align:left;"><?php echo htmlspecialchars($al['nombre']); ?></td>
               <?php for ($d=1; $d<=$totalDias; $d++):
+                    $fechaDia = sprintf('%04d-%02d-%02d', $anioSeleccionado, $mesSeleccionado, $d);
+                    $esFinDeSemana = (date('w', strtotime($fechaDia)) == 0 || date('w', strtotime($fechaDia)) == 6);
                     $valor = $asistencias[$dniAl][$d] ?? ''; // 'presente' / 'ausente' / '' / 'tarde'
                     $clase = '';
                     $letra = '';
@@ -583,11 +605,14 @@ $nombreUsuario = $_SESSION['usuario'] ?? 'Usuario';
                     elseif ($valor === 'ausente') { $clase = 'estado-ausente'; $letra = 'A'; }
                     elseif ($valor === 'tarde')   { $clase = 'estado-tarde'; $letra = 'T';}
                     elseif ($valor === 'justificado')   { $clase = 'estado-justificado'; $letra = 'J';}
+                    if ($esFinDeSemana) { $clase .= ' no-laborable'; }
               ?>
-                <td class="celda-estado <?php echo $clase; ?>"
+                <td class="celda-estado <?php echo trim($clase); ?>"
                     data-dni="<?php echo $dniAl; ?>"
                     data-dia="<?php echo $d; ?>"
-                    data-valor="<?php echo $valor; ?>">
+                    data-valor="<?php echo $valor; ?>"
+                    data-no-laborable="<?php echo $esFinDeSemana ? '1' : '0'; ?>">
+
                   <span class="letra"><?php echo $letra; ?></span>
                   <input type="hidden" name="estado[<?php echo $dniAl; ?>][<?php echo $d; ?>]" value="<?php echo $valor; ?>">
                 </td>
@@ -691,6 +716,8 @@ function aplicarEstado(celda, valor) {
 // ── Ciclo de clic en cada celda ──────────────────────────────────────
 document.querySelectorAll('.celda-estado').forEach(celda => {
   celda.addEventListener('click', () => {
+    if (celda.dataset.noLaborable === '1') return;
+
     let valor = celda.dataset.valor || "";
 
     if (valor === "")           valor = "presente";

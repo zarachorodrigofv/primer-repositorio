@@ -535,7 +535,8 @@ CREATE TABLE `usuarios` (
   `dni` int(10) UNSIGNED NOT NULL,
   `password` varchar(100) NOT NULL,
   `nombre` varchar(100) NOT NULL,
-  `rol` varchar(20) NOT NULL
+  `rol` varchar(20) NOT NULL,
+  `password_changed` tinyint(1) NOT NULL DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --

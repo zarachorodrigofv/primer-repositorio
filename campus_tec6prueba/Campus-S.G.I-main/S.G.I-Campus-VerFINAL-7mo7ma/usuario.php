@@ -11,7 +11,7 @@ requireLogin();
 $user_id = $_SESSION['dni'];
 $pdo = db();
 
-$stmt = $pdo->prepare("SELECT nombre, dni, rol FROM usuarios WHERE dni = ?");
+$stmt = $pdo->prepare("SELECT COALESCE(NULLIF(TRIM(nombre), ''), CONCAT('DNI ', dni)) AS nombre, dni, rol FROM usuarios WHERE dni = ?");
 $stmt->execute([$user_id]);
 $user = $stmt->fetch();
 ?>
