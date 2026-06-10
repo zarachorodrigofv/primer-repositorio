@@ -103,33 +103,113 @@ if (!in_array($cursoSeleccionado, $idsPermitidos, true)) {
 $mesSeleccionado   = isset($_REQUEST['mes']) ? (int)$_REQUEST['mes'] : (int)date('n');
 $anioSeleccionado  = isset($_REQUEST['anio']) ? (int)$_REQUEST['anio'] : (int)date('Y');
 
-// 6) GUARDAR ASISTENCIA (P / A)
+// 6) GUARDAR ASISTENCIA
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar']) && $cursoSeleccionado) {
+
     if (isset($_POST['estado']) && is_array($_POST['estado'])) {
-        $estadoData = $_POST['estado'];
-        foreach ($estadoData as $dniAlumno => $dias) {
+
+        foreach ($_POST['estado'] as $dniAlumno => $dias) {
+
             $dniAlumno = (int)$dniAlumno;
+
             foreach ($dias as $dia => $estado) {
-                $dia    = (int)$dia;
-                $estado = ($estado === 'presente' || $estado === 'ausente' || $estado === 'tarde') ? $estado : '';
 
-                $fecha = sprintf('%04d-%02d-%02d', $anioSeleccionado, $mesSeleccionado, $dia);
+                $dia = (int)$dia;
 
-                // Borrar registro anterior de ese alumno + fecha
-                $del = $conn->prepare("DELETE FROM asistencia WHERE alumno_dni = ? AND fecha = ?");
-                $del->bind_param("is", $dniAlumno, $fecha);
+                $estado = in_array(
+                    $estado,
+                    ['presente', 'ausente', 'tarde', 'justificado'],
+                    true
+                ) ? $estado : '';
+
+                $fecha = sprintf(
+                    '%04d-%02d-%02d',
+                    $anioSeleccionado,
+                    $mesSeleccionado,
+                    $dia
+                );
+
+                // Si está vacío, borrar asistencia
+                if ($estado === '') {
+
+                    $del = $conn->prepare(
+                        "DELETE FROM asistencia
+                         WHERE alumno_dni = ? AND fecha = ?"
+                    );
+
+                    $del->bind_param(
+                        "is",
+                        $dniAlumno,
+                        $fecha
+                    );
+
+                    $del->execute();
+                    $del->close();
+
+                    continue;
+                }
+
+                // Buscar motivo existente para no perderlo
+                $motivo = null;
+
+                $busca = $conn->prepare(
+                    "SELECT motivo_justificado
+                     FROM asistencia
+                     WHERE alumno_dni = ? AND fecha = ?
+                     LIMIT 1"
+                );
+
+                $busca->bind_param(
+                    "is",
+                    $dniAlumno,
+                    $fecha
+                );
+
+                $busca->execute();
+
+                $resultado = $busca->get_result();
+
+                if ($fila = $resultado->fetch_assoc()) {
+                    $motivo = $fila['motivo_justificado'];
+                }
+
+                $busca->close();
+
+                // Eliminar registro anterior
+                $del = $conn->prepare(
+                    "DELETE FROM asistencia
+                     WHERE alumno_dni = ? AND fecha = ?"
+                );
+
+                $del->bind_param(
+                    "is",
+                    $dniAlumno,
+                    $fecha
+                );
+
                 $del->execute();
                 $del->close();
 
-                // Insertar solo si hay presencia o ausencia marcada
-                if ($estado !== '') {
-                    $ins = $conn->prepare("INSERT INTO asistencia (alumno_dni, fecha, estado) VALUES (?,?,?)");
-                    $ins->bind_param("iss", $dniAlumno, $fecha, $estado);
-                    $ins->execute();
-                    $ins->close();
-                }
+                // Insertar conservando el motivo
+                $ins = $conn->prepare(
+                    "INSERT INTO asistencia
+                    (alumno_dni, fecha, estado, motivo_justificado)
+                    VALUES (?, ?, ?, ?)"
+                );
+
+                $ins->bind_param(
+                    "isss",
+                    $dniAlumno,
+                    $fecha,
+                    $estado,
+                    $motivo
+                );
+
+                $ins->execute();
+                $ins->close();
             }
         }
+
         $mensajeOK = "Asistencia guardada correctamente.";
     }
 }
@@ -160,7 +240,7 @@ if ($alumnos) {
     $desde = sprintf('%04d-%02d-01', $anioSeleccionado, $mesSeleccionado);
     $hasta = sprintf('%04d-%02d-%02d', $anioSeleccionado, $mesSeleccionado, $totalDias);
 
-    $sql = "SELECT alumno_dni, fecha, estado
+    $sql = "SELECT alumno_dni, fecha, estado, motivo_justificado
             FROM asistencia
             WHERE alumno_dni IN ($dniList)
               AND fecha BETWEEN ? AND ?";
@@ -168,9 +248,15 @@ if ($alumnos) {
     $stmt->bind_param("ss", $desde, $hasta);
     $stmt->execute();
     $res = $stmt->get_result();
+    $motivosPrevios = [];
     while ($fila = $res->fetch_assoc()) {
         $dia = (int)date('j', strtotime($fila['fecha']));
         $asistencias[(int)$fila['alumno_dni']][$dia] = $fila['estado'];
+        if (!empty($fila['motivo_justificado'])) {
+    $motivosPrevios[
+        $fila['alumno_dni'] . '_' . $dia
+    ] = $fila['motivo_justificado'];
+}
     }
     $stmt->close();
 }
@@ -264,6 +350,7 @@ $nombreUsuario = $_SESSION['usuario'] ?? 'Usuario';
     .estado-presente   { background-color: #c8f7c5; color: #0a7511; }
     .estado-ausente    { background-color: #f7c5c5; color: #a00000; }
     .estado-tarde      { background-color:  #fde68a; color: #92400e;}
+    .estado-justificado { background-color: #dbeafe; color: #1d4ed8; }
 
     .botones {
       text-align: center;
@@ -296,6 +383,96 @@ $nombreUsuario = $_SESSION['usuario'] ?? 'Usuario';
       table { font-size: 11px; }
       th.alumnos-col { width: 130px; }
     }
+
+    /* ── Modal justificado ── */
+    #modalJustificado {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      background: rgba(0,0,0,0.45);
+      align-items: center;
+      justify-content: center;
+    }
+    #modalJustificado.activo {
+      display: flex;
+    }
+    .modal-box {
+      background: #fff;
+      border-radius: 14px;
+      padding: 28px 32px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.22);
+      position: relative;
+    }
+    .modal-box h3 {
+      margin: 0 0 6px 0;
+      font-size: 18px;
+      color: #0f172a;
+    }
+    .modal-meta {
+      font-size: 13px;
+      color: #555;
+      margin-bottom: 16px;
+    }
+    .modal-meta span {
+      font-weight: bold;
+      color: #1d4ed8;
+    }
+    .modal-box label {
+      display: block;
+      font-size: 13px;
+      font-weight: bold;
+      margin-bottom: 6px;
+      color: #374151;
+    }
+    .modal-box textarea {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid #94a3b8;
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 14px;
+      resize: vertical;
+      min-height: 90px;
+      font-family: Arial, sans-serif;
+    }
+    .modal-box textarea:focus {
+      outline: none;
+      border-color: #1d4ed8;
+      box-shadow: 0 0 0 2px #bfdbfe;
+    }
+    .modal-botones {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+      justify-content: flex-end;
+    }
+    .modal-botones button {
+      border: none;
+      border-radius: 8px;
+      padding: 9px 20px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: bold;
+    }
+    .btn-cancelar-modal {
+      background: #e2e8f0;
+      color: #374151;
+    }
+    .btn-cancelar-modal:hover { background: #cbd5e1; }
+    .btn-guardar-modal {
+      background: #1d4ed8;
+      color: #fff;
+    }
+    .btn-guardar-modal:hover { background: #1e40af; }
+    .modal-error {
+      color: #dc2626;
+      font-size: 12px;
+      margin-top: 6px;
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -326,6 +503,7 @@ $nombreUsuario = $_SESSION['usuario'] ?? 'Usuario';
 <main>
   <div class="contenedor">
     <div class="alerta-ok"><?php echo isset($mensajeOK) ? htmlspecialchars($mensajeOK) : ''; ?></div>
+    <div class="alerta-ok" id="alertaJustificadoOK" style="display:none;">✔ Justificado guardado correctamente.</div>
 
     <h3 class="titulo-asistencia">Lista de Asistencia</h3>
 
@@ -404,6 +582,7 @@ $nombreUsuario = $_SESSION['usuario'] ?? 'Usuario';
                     if ($valor === 'presente') { $clase = 'estado-presente'; $letra = 'P'; }
                     elseif ($valor === 'ausente') { $clase = 'estado-ausente'; $letra = 'A'; }
                     elseif ($valor === 'tarde')   { $clase = 'estado-tarde'; $letra = 'T';}
+                    elseif ($valor === 'justificado')   { $clase = 'estado-justificado'; $letra = 'J';}
               ?>
                 <td class="celda-estado <?php echo $clase; ?>"
                     data-dni="<?php echo $dniAl; ?>"
@@ -426,43 +605,167 @@ $nombreUsuario = $_SESSION['usuario'] ?? 'Usuario';
   </div>
 </main>
 
+<!-- ══════════════════════════════════════════
+     MODAL: Motivo de justificado
+══════════════════════════════════════════ -->
+<div id="modalJustificado" role="dialog" aria-modal="true" aria-labelledby="modalTitulo">
+  <div class="modal-box">
+    <h3 id="modalTitulo">📋 Registrar Justificado</h3>
+    <p class="modal-meta">
+      Alumno: <span id="modalNombreAlumno">—</span><br>
+      Fecha:  <span id="modalFechaTexto">—</span>
+    </p>
+    <label for="modalMotivo">Motivo del justificado:</label>
+    <textarea id="modalMotivo" placeholder="Ej: Certificado médico, trámite familiar…" maxlength="500"></textarea>
+    <div class="modal-error" id="modalError">Por favor ingresá el motivo antes de guardar.</div>
+    <div class="modal-botones">
+      <button class="btn-cancelar-modal" id="btnCancelarModal">Cancelar</button>
+      <button class="btn-guardar-modal"  id="btnGuardarModal">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+ 
 <script src="js/main.js"></script>
 <script>
 window.APP_USER_NAME = "<?=htmlspecialchars($_SESSION['usuario'] ?? $user['nombre'] ?? 'Usuario');?>"; // Iniciales
 
-  // Clic en cada celda: ciclo "", P, A, T
-  document.querySelectorAll('.celda-estado').forEach(celda => {
-    celda.addEventListener('click', () => {
-      let valor = celda.dataset.valor || "";
-      if (valor === "")        valor = "presente";
-      else if (valor === "presente") valor = "ausente";
-      else if (valor === "ausente")  valor = "tarde";
-      else                      valor = "";
+// ── Datos de alumnos para el modal ──────────────────────────────────
+const alumnosData = {
+  <?php foreach ($alumnos as $al): ?>
+  <?php echo (int)$al['dni']; ?>: <?php echo json_encode(htmlspecialchars($al['nombre'])); ?>,
+  <?php endforeach; ?>
+};
 
-      celda.dataset.valor = valor;
+const mesActual   = <?php echo $mesSeleccionado; ?>;
+const anioActual  = <?php echo $anioSeleccionado; ?>;
 
-      const hidden = celda.querySelector('input[type="hidden"]');
-      const span   = celda.querySelector('span.letra');
+// ── Variables del modal ──────────────────────────────────────────────
+let celdaPendiente   = null; // celda que disparó el modal
+let motivosPrevios   = <?php echo json_encode($motivosPrevios ?? []); ?>;   // { "dni_dia": "motivo guardado" }  — memoria en sesión
 
-      hidden.value = valor;
+// ── Abrir modal ──────────────────────────────────────────────────────
+function abrirModal(celda) {
+  const dni  = celda.dataset.dni;
+  const dia  = celda.dataset.dia;
+  const key  = `${dni}_${dia}`;
+  const fecha = `${anioActual}-${String(mesActual).padStart(2,'0')}-${String(dia).padStart(2,'0')}`;
 
-      celda.classList.remove('estado-presente','estado-ausente', 'estado-tarde');
-      span.textContent = "";
+  document.getElementById('modalNombreAlumno').textContent = alumnosData[dni] ?? `DNI ${dni}`;
+  document.getElementById('modalFechaTexto').textContent   = fecha;
+  document.getElementById('modalMotivo').value             = motivosPrevios[key] ?? '';
+  document.getElementById('modalError').style.display     = 'none';
 
-      if (valor === "presente") {
-        span.textContent = "P";
-        celda.classList.add('estado-presente');
-      } 
-        else if (valor === "ausente") {
-        span.textContent = "A";
-        celda.classList.add('estado-ausente');
-      }
-        else if (valor === "tarde") {
-          span.textContent = "T";
-          celda.classList.add('estado-tarde');
-        } 
-    });
+  celdaPendiente = celda;
+  document.getElementById('modalJustificado').classList.add('activo');
+  document.getElementById('modalMotivo').focus();
+}
+
+// ── Cerrar modal sin guardar (revertir estado) ──────────────────────
+function cerrarModal(revertir = true) {
+  document.getElementById('modalJustificado').classList.remove('activo');
+  if (revertir && celdaPendiente) {
+    // Vuelve al estado vacío
+    aplicarEstado(celdaPendiente, '');
+    celdaPendiente.dataset.valor = '';
+    celdaPendiente.querySelector('input[type="hidden"]').value = '';
+  }
+  celdaPendiente = null;
+}
+
+// ── Aplicar clase y letra a una celda ───────────────────────────────
+function aplicarEstado(celda, valor) {
+  const span = celda.querySelector('span.letra');
+  celda.classList.remove('estado-presente','estado-ausente','estado-tarde','estado-justificado');
+  const mapa = {
+    presente:    ['estado-presente',    'P'],
+    ausente:     ['estado-ausente',     'A'],
+    tarde:       ['estado-tarde',       'T'],
+    justificado: ['estado-justificado', 'J'],
+    '':          [null, '']
+  };
+  const [cls, letra] = mapa[valor] ?? [null, ''];
+  if (cls) celda.classList.add(cls);
+  span.textContent = letra;
+}
+
+// ── Ciclo de clic en cada celda ──────────────────────────────────────
+document.querySelectorAll('.celda-estado').forEach(celda => {
+  celda.addEventListener('click', () => {
+    let valor = celda.dataset.valor || "";
+
+    if (valor === "")           valor = "presente";
+    else if (valor === "presente")  valor = "ausente";
+    else if (valor === "ausente")   valor = "tarde";
+    else if (valor === "tarde")     valor = "justificado";
+    else                        valor = "";
+
+    celda.dataset.valor = valor;
+    celda.querySelector('input[type="hidden"]').value = valor;
+    aplicarEstado(celda, valor);
+
+    // Al llegar a "justificado" → abrir modal para el motivo
+    if (valor === "justificado") {
+      abrirModal(celda);
+    }
   });
+});
+
+// ── Botón Cancelar del modal ─────────────────────────────────────────
+document.getElementById('btnCancelarModal').addEventListener('click', () => {
+  cerrarModal(true);
+});
+
+// ── Cerrar con clic en el backdrop ───────────────────────────────────
+document.getElementById('modalJustificado').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('modalJustificado')) cerrarModal(true);
+});
+
+// ── Botón Guardar del modal ──────────────────────────────────────────
+document.getElementById('btnGuardarModal').addEventListener('click', async () => {
+  const motivo = document.getElementById('modalMotivo').value.trim();
+  if (!motivo) {
+    document.getElementById('modalError').style.display = 'block';
+    document.getElementById('modalMotivo').focus();
+    return;
+  }
+  document.getElementById('modalError').style.display = 'none';
+
+  const celda  = celdaPendiente;
+  const dni    = celda.dataset.dni;
+  const dia    = celda.dataset.dia;
+  const fecha  = `${anioActual}-${String(mesActual).padStart(2,'0')}-${String(dia).padStart(2,'0')}`;
+  const key    = `${dni}_${dia}`;
+
+  // Deshabilitar botón mientras guarda
+  const btnGuardar = document.getElementById('btnGuardarModal');
+  btnGuardar.disabled = true;
+  btnGuardar.textContent = 'Guardando…';
+
+  try {
+    const body = new URLSearchParams({ alumno_dni: dni, fecha, motivo });
+    const resp = await fetch('api_guardar_justificado.php', { method: 'POST', body });
+    const data = await resp.json();
+
+    if (data.ok) {
+      motivosPrevios[key] = motivo; // recordar en sesión
+      cerrarModal(false);           // cerrar SIN revertir
+
+      // Mostrar alerta de éxito arriba
+      const alerta = document.getElementById('alertaJustificadoOK');
+      alerta.style.display = 'block';
+      alerta.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => { alerta.style.display = 'none'; }, 3500);
+    } else {
+      alert('Error al guardar: ' + (data.error ?? 'Desconocido'));
+    }
+  } catch (err) {
+    alert('Error de red. Revisá la conexión.');
+  } finally {
+    btnGuardar.disabled = false;
+    btnGuardar.textContent = '💾 Guardar';
+  }
+});
 </script>
 </body>
 </html>
+ 

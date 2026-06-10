@@ -171,7 +171,16 @@ if (in_array($rol, ['directivo','preceptor','profesor'])) {
    2) ENVÍO DE MENSAJE
    ========================================================== */
 
+// Solo directivos y preceptores pueden enviar mensajes
+$puedeEnviar = in_array($rol, ['directivo', 'preceptor']);
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+  if (!$puedeEnviar) {
+    // Alumno / familia intentando enviar por POST directo → denegar silenciosamente
+    header("Location: msg.php?con=" . urlencode($_POST['destinatario'] ?? ''));
+    exit;
+  }
+
   $destinatarioPost = $_POST['destinatario'] ?? '';
   $mensaje = $_POST['mensaje'] ?? '';
 
@@ -381,6 +390,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         height: 40px;
       }
     }
+    #baraSoloLectura {
+      padding: 14px 20px;
+      background: #f1f5f9;
+      border-top: 1px solid #cbd5e1;
+      color: #64748b;
+      font-size: 14px;
+      text-align: center;
+      font-style: italic;
+    }
   </style>
 </head>
 <body>
@@ -436,11 +454,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <div id="contenedorMensajes"></div>
 
   <?php if ($contacto): ?>
-  <form id="formEnviar" method="POST">
-    <input type="hidden" name="destinatario" value="<?php echo htmlspecialchars($contacto); ?>">
-    <textarea name="mensaje" rows="1" placeholder="Escribí un mensaje..." required></textarea>
-    <button type="submit">&#9658;</button>
-  </form>
+    <?php if ($puedeEnviar): ?>
+    <form id="formEnviar" method="POST">
+      <input type="hidden" name="destinatario" value="<?php echo htmlspecialchars($contacto); ?>">
+      <textarea name="mensaje" rows="1" placeholder="Escribí un mensaje..." required></textarea>
+      <button type="submit">&#9658;</button>
+    </form>
+    <?php elseif ($rol === 'alumno'): ?>  
+    <div id="baraSoloLectura">
+      🔒 Los alumnos solo pueden leer mensajes. No tenés permiso para enviar.
+    </div>
+    <?php elseif ($rol === 'profesor'): ?>  
+    <div id="baraSoloLectura">
+      🔒 Los profesores solo pueden leer mensajes. No tenés permiso para enviar.
+    </div>
+    <?php endif; ?>
   <?php endif; ?>
 </div>
 
