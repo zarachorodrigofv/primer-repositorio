@@ -376,6 +376,13 @@ $nombreUsuario = $_SESSION['usuario'] ?? 'Usuario';
     .btn{background:#0f172a;color:white;border:none;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:14px;}
     .btn:hover{background:#1e293b;}
     .mensaje{margin-bottom:15px;padding:8px 12px;border-radius:8px;font-size:14px;display:<?php echo $mensaje ? 'block' : 'none'; ?>;background:#dcfce7;color:#166534;border:1px solid #bbf7d0;}
+    .search-wrap{display:flex;align-items:center;gap:8px;}
+    .search-btn{border:1px solid #cbd5e1;background:#fff;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:14px;}
+    .search-box{display:none;}
+    .search-box input{width:100%;box-sizing:border-box;}
+    .search-list{max-height:180px;overflow:auto;border:1px solid #e5e7eb;border-radius:8px;padding:6px;background:#fff;display:none;}
+    .search-list option{padding:6px;}
+    .search-list option:hover{background:#f3f4f6;}
 
     table{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px;}
     th,td{border:1px solid #d1d5db;padding:6px;text-align:left;}
@@ -422,36 +429,51 @@ $nombreUsuario = $_SESSION['usuario'] ?? 'Usuario';
           <input type="hidden" name="accion" value="asignar_docente">
           <div>
             <label>Profesor:</label>
-            <select name="maestro_dni" required>
-              <option value="">-- Seleccionar profesor --</option>
-              <?php foreach($profesores as $p): ?>
-                <option value="<?php echo $p['dni']; ?>">
-                  <?php echo htmlspecialchars($p['nombre'])." (".$p['dni'].")"; ?>
-                </option>
-              <?php endforeach; ?>
-            </select>
+            <div class="search-wrap">
+              <button type="button" class="search-btn" data-target="maestro_dni" aria-label="Buscar profesor">🔎</button>
+              <select name="maestro_dni" id="maestro_dni" required>
+                <option value="">-- Seleccionar profesor --</option>
+                <?php foreach($profesores as $p): ?>
+                  <option value="<?php echo $p['dni']; ?>"><?php echo htmlspecialchars($p['nombre'])." (".$p['dni'].")"; ?></option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+            <div class="search-box" id="searchBox_maestro_dni">
+              <input type="text" id="input_maestro_dni" placeholder="Buscar profesor por nombre o DNI" autocomplete="off">
+            </div>
+            <div class="search-list" id="list_maestro_dni"></div>
           </div>
           <div>
             <label>Curso:</label>
-            <select name="curso_id" required>
-              <option value="">-- Seleccionar curso --</option>
-              <?php foreach($cursos as $c): ?>
-                <option value="<?php echo $c['id']; ?>">
-                  <?php echo htmlspecialchars($c['nombre']); ?>
-                </option>
-              <?php endforeach; ?>
-            </select>
+            <div class="search-wrap">
+              <button type="button" class="search-btn" data-target="curso_id" aria-label="Buscar curso">🔎</button>
+              <select name="curso_id" id="curso_id" required>
+                <option value="">-- Seleccionar curso --</option>
+                <?php foreach($cursos as $c): ?>
+                  <option value="<?php echo $c['id']; ?>"><?php echo htmlspecialchars($c['nombre']); ?></option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+            <div class="search-box" id="searchBox_curso_id">
+              <input type="text" id="input_curso_id" placeholder="Buscar curso" autocomplete="off">
+            </div>
+            <div class="search-list" id="list_curso_id"></div>
           </div>
           <div>
             <label>Materia:</label>
-            <select name="materia_id" required>
-              <option value="">-- Seleccionar materia --</option>
-              <?php foreach($materias as $m): ?>
-                <option value="<?php echo $m['id']; ?>">
-                  <?php echo htmlspecialchars($m['nombre']); ?>
-                </option>
-              <?php endforeach; ?>
-            </select>
+            <div class="search-wrap">
+              <button type="button" class="search-btn" data-target="materia_id" aria-label="Buscar materia">🔎</button>
+              <select name="materia_id" id="materia_id" required>
+                <option value="">-- Seleccionar materia --</option>
+                <?php foreach($materias as $m): ?>
+                  <option value="<?php echo $m['id']; ?>"><?php echo htmlspecialchars($m['nombre']); ?></option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+            <div class="search-box" id="searchBox_materia_id">
+              <input type="text" id="input_materia_id" placeholder="Buscar materia" autocomplete="off">
+            </div>
+            <div class="search-list" id="list_materia_id"></div>
           </div>
           <button type="submit" class="btn">Asignar materia</button>
         </form>
@@ -465,25 +487,35 @@ $nombreUsuario = $_SESSION['usuario'] ?? 'Usuario';
           <input type="hidden" name="accion" value="asignar_preceptor">
           <div>
             <label>Preceptor:</label>
-            <select name="preceptor_dni" required>
-              <option value="">-- Seleccionar preceptor --</option>
-              <?php foreach($preceptores as $p): ?>
-                <option value="<?php echo $p['dni']; ?>">
-                  <?php echo htmlspecialchars($p['nombre'])." (".$p['dni'].")"; ?>
-                </option>
-              <?php endforeach; ?>
-            </select>
+            <div class="search-wrap">
+              <button type="button" class="search-btn" data-target="preceptor_dni" aria-label="Buscar preceptor">🔎</button>
+              <select name="preceptor_dni" id="preceptor_dni" required>
+                <option value="">-- Seleccionar preceptor --</option>
+                <?php foreach($preceptores as $p): ?>
+                  <option value="<?php echo $p['dni']; ?>"><?php echo htmlspecialchars($p['nombre'])." (".$p['dni'].")"; ?></option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+            <div class="search-box" id="searchBox_preceptor_dni">
+              <input type="text" id="input_preceptor_dni" placeholder="Buscar preceptor por nombre o DNI" autocomplete="off">
+            </div>
+            <div class="search-list" id="list_preceptor_dni"></div>
           </div>
           <div>
             <label>Curso:</label>
-            <select name="curso_id" required>
-              <option value="">-- Seleccionar curso --</option>
-              <?php foreach($cursos as $c): ?>
-                <option value="<?php echo $c['id']; ?>">
-                  <?php echo htmlspecialchars($c['nombre']); ?>
-                </option>
-              <?php endforeach; ?>
-            </select>
+            <div class="search-wrap">
+              <button type="button" class="search-btn" data-target="curso_id_2" aria-label="Buscar curso">🔎</button>
+              <select name="curso_id" id="curso_id_2" required>
+                <option value="">-- Seleccionar curso --</option>
+                <?php foreach($cursos as $c): ?>
+                  <option value="<?php echo $c['id']; ?>"><?php echo htmlspecialchars($c['nombre']); ?></option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+            <div class="search-box" id="searchBox_curso_id_2">
+              <input type="text" id="input_curso_id_2" placeholder="Buscar curso" autocomplete="off">
+            </div>
+            <div class="search-list" id="list_curso_id_2"></div>
           </div>
           <button type="submit" class="btn">Asignar curso</button>
         </form>
@@ -500,25 +532,37 @@ $nombreUsuario = $_SESSION['usuario'] ?? 'Usuario';
           <input type="hidden" name="accion" value="asignar_familia">
           <div>
             <label>Familia:</label>
-            <select name="familia_dni" required>
-              <option value="">-- Seleccionar familia --</option>
-              <?php foreach($familias as $f): ?>
-                <option value="<?php echo $f['dni']; ?>">
-                  <?php echo htmlspecialchars($f['nombre'])." (".$f['dni'].")"; ?>
-                </option>
-              <?php endforeach; ?>
-            </select>
+            <div class="search-wrap">
+              <button type="button" class="search-btn" id="btnBuscarFamilia" aria-label="Buscar familia">🔎</button>
+              <select name="familia_dni" id="familia_dni" required>
+                <option value="">-- Seleccionar familia --</option>
+                <?php foreach($familias as $f): ?>
+                  <option value="<?php echo $f['dni']; ?>">
+                    <?php echo htmlspecialchars($f['nombre'])." (".$f['dni'].")"; ?>
+                  </option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+            <div class="search-box" id="searchBoxFamilia">
+              <input type="text" id="inputBuscarFamilia" placeholder="Escribí nombre o DNI de la familia" autocomplete="off">
+            </div>
+            <div class="familias-list" id="listaFamiliasFiltradas"></div>
           </div>
           <div>
             <label>Alumno:</label>
-            <select name="alumno_dni" required>
-              <option value="">-- Seleccionar alumno --</option>
-              <?php foreach($alumnosActivos as $a): ?>
-                <option value="<?php echo $a['dni']; ?>">
-                  <?php echo htmlspecialchars($a['nombre'])." (".$a['dni'].")"; ?>
-                </option>
-              <?php endforeach; ?>
-            </select>
+            <div class="search-wrap">
+              <button type="button" class="search-btn" data-target="alumno_dni" aria-label="Buscar alumno">🔎</button>
+              <select name="alumno_dni" id="alumno_dni" required>
+                <option value="">-- Seleccionar alumno --</option>
+                <?php foreach($alumnosActivos as $a): ?>
+                  <option value="<?php echo $a['dni']; ?>"><?php echo htmlspecialchars($a['nombre'])." (".$a['dni'].")"; ?></option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+            <div class="search-box" id="searchBox_alumno_dni">
+              <input type="text" id="input_alumno_dni" placeholder="Buscar alumno por nombre o DNI" autocomplete="off">
+            </div>
+            <div class="search-list" id="list_alumno_dni"></div>
           </div>
           <div>
             <label>Parentesco:</label>
@@ -642,6 +686,74 @@ $nombreUsuario = $_SESSION['usuario'] ?? 'Usuario';
 
   const accountBtn = document.getElementById("accountBtn");
   const accountMenu = document.getElementById("accountMenu");
+
+  function setupSearch(selectId) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+    const btn = document.querySelector('.search-btn[data-target="' + selectId + '"]');
+    const searchBox = document.getElementById('searchBox_' + selectId);
+    const input = document.getElementById('input_' + selectId);
+    const list = document.getElementById('list_' + selectId);
+    if (!btn || !input || !list) return;
+
+    const render = () => {
+      const texto = (input.value || '').toLowerCase().trim();
+      const opciones = Array.from(select.options).slice(1);
+      const filtradas = opciones.filter(opt => !texto || (opt.textContent || '').toLowerCase().includes(texto));
+      list.innerHTML = filtradas.map(opt => `<option value="${opt.value}" style="display:block;cursor:pointer;">${opt.textContent}</option>`).join('');
+      list.style.display = filtradas.length && texto ? 'block' : 'none';
+    };
+
+    btn.addEventListener('click', () => {
+      const visible = searchBox.style.display === 'block';
+      searchBox.style.display = visible ? 'none' : 'block';
+      list.style.display = 'none';
+      if (!visible) { input.value=''; input.focus(); render(); }
+    });
+
+    input.addEventListener('input', render);
+    list.addEventListener('click', (e) => {
+      const opt = e.target.closest('option');
+      if (!opt) return;
+      select.value = opt.value;
+      list.style.display = 'none';
+      searchBox.style.display = 'none';
+    });
+  }
+
+  ['maestro_dni','curso_id','materia_id','preceptor_dni','curso_id_2','alumno_dni'].forEach(setupSearch);
+
+  const selectFamilia = document.getElementById('familia_dni');
+  const btnBuscarFamilia = document.getElementById('btnBuscarFamilia');
+  const searchBoxFamilia = document.getElementById('searchBoxFamilia');
+  const inputBuscarFamilia = document.getElementById('inputBuscarFamilia');
+  const listaFamiliasFiltradas = document.getElementById('listaFamiliasFiltradas');
+
+  function filtrarFamilias() {
+    const texto = (inputBuscarFamilia.value || '').toLowerCase().trim();
+    const opciones = Array.from(selectFamilia.options).slice(1);
+    const filtradas = opciones.filter(opt => !texto || (opt.textContent || '').toLowerCase().includes(texto));
+    listaFamiliasFiltradas.innerHTML = filtradas.map(opt => `<option value="${opt.value}" style="display:block;cursor:pointer;">${opt.textContent}</option>`).join('');
+    listaFamiliasFiltradas.style.display = filtradas.length && texto ? 'block' : 'none';
+  }
+
+  btnBuscarFamilia.addEventListener('click', () => {
+    const visible = searchBoxFamilia.style.display === 'block';
+    searchBoxFamilia.style.display = visible ? 'none' : 'block';
+    listaFamiliasFiltradas.style.display = 'none';
+    if (!visible) { inputBuscarFamilia.value=''; inputBuscarFamilia.focus(); filtrarFamilias(); }
+  });
+
+  inputBuscarFamilia.addEventListener('input', filtrarFamilias);
+
+  listaFamiliasFiltradas.addEventListener('click', (e) => {
+    const opt = e.target.closest('option');
+    if (!opt) return;
+    selectFamilia.value = opt.value;
+    listaFamiliasFiltradas.style.display = 'none';
+    searchBoxFamilia.style.display = 'none';
+  });
+
   accountBtn.addEventListener("click", e=>{
     e.stopPropagation();
     accountMenu.style.display = accountMenu.style.display === "block" ? "none" : "block";
