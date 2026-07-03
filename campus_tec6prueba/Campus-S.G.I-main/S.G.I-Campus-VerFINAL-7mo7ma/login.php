@@ -8,7 +8,7 @@ $dni = isset($_POST['dni']) ? trim($_POST['dni']) : '';
 $password = isset($_POST['password']) ? (string)$_POST['password'] : '';
 
 if ($dni === '' || $password === '') {
-  echo "DNI y contraseña son obligatorios.";
+  header("Location: index.html?login=error&msg=" . urlencode("Completá DNI y contraseña."));
   exit;
 }
 
@@ -26,9 +26,10 @@ $stmt->execute();
 $result = $stmt->get_result();
 
 if ($result->num_rows !== 1) {
-  echo "DNI no encontrado.";
   $stmt->close();
   $conn->close();
+
+  header("Location: index.html?login=error&msg=" . urlencode("DNI no encontrado."));
   exit;
 }
 
@@ -54,8 +55,9 @@ if (strlen($hash) >= 60 && strncmp($hash, '$2y$', 4) === 0) {
 }
 
 if (!$ok) {
-  echo "Contraseña incorrecta.";
   $conn->close();
+
+  header("Location: index.html?login=error&msg=" . urlencode("Contraseña incorrecta."));
   exit;
 }
 

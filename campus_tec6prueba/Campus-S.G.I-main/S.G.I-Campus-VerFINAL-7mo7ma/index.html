@@ -295,6 +295,65 @@ body.dark .toggle-password {
     .link-alternativo a:hover {
       text-decoration: underline;
     }
+
+    /* Aviso de registro */
+    #aviso-registro {
+      display: none;
+      padding: 14px 20px;
+      margin: 12px auto;
+      max-width: 500px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: bold;
+      text-align: center;
+      animation: fadeIn 0.5s ease-in;
+    }
+
+    #aviso-registro.ok {
+      background-color: #dcfce7;
+      color: #166534;
+      border: 1px solid #86efac;
+    }
+
+    #aviso-registro.error {
+      background-color: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fca5a5;
+    }
+    #aviso-login {
+      display: none;
+      padding: 14px 20px;
+      margin: 12px auto;
+      max-width: 500px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: bold;
+      text-align: center;
+      animation: fadeIn 0.5s ease-in;
+    }
+
+    #aviso-login.error {
+      background-color: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fca5a5;
+    }
+
+body.dark #aviso-login.error {
+  background-color: #7f1d1d;
+  color: #fecaca;
+  border-color: #f87171;
+}
+    body.dark #aviso-registro.ok {
+      background-color: #14532d;
+      color: #bbf7d0;
+      border-color: #4ade80;
+    }
+
+    body.dark #aviso-registro.error {
+      background-color: #7f1d1d;
+      color: #fecaca;
+      border-color: #f87171;
+    }
   </style>
 </head>
 <body>
@@ -302,6 +361,10 @@ body.dark .toggle-password {
     <h3>BIENVENIDO AL SISTEMA DE GESTIÓN INSTITUCIONAL</h3>
     <img src="imagenes/newlogo1.webp" alt="Logo SGI" class="logo">
   </header>
+
+  <!-- Aviso de registro (se muestra con ?registro=ok o ?registro=error) -->
+  <div id="aviso-registro"></div>
+  <div id="aviso-login"></div>
 
   <div class="main-container">
     <div class="side-image">
@@ -357,7 +420,6 @@ body.dark .toggle-password {
           <label for="escuela" style="width: 105%;">Seleccioná tu escuela:</label>
           <select name="escuela" id="escuela" required>
             <option value="">-- Elegí tu escuela --</option>
-            <option value="tecnica n°2">E.E.S.T.N°2</option>
             <option value="tecnica n°6">E.E.S.T.N°6</option>
           </select>
 
@@ -428,6 +490,61 @@ body.dark .toggle-password {
       document.body.classList.toggle('dark');
       toggle.textContent = document.body.classList.contains('dark') ? '☀️' : '🌙';
     });
+
+    // Leer parámetro ?registro= de la URL y mostrar aviso
+    (function() {
+      const params = new URLSearchParams(window.location.search);
+      const estado = params.get('registro');
+      const aviso = document.getElementById('aviso-registro');
+      const estadoLogin = params.get('login');
+const avisoLogin = document.getElementById('aviso-login');
+
+if (estadoLogin === 'error') {
+    const msg = params.get('msg') || 'Error al iniciar sesión.';
+
+    avisoLogin.textContent = '❌ ' + msg;
+    avisoLogin.classList.add('error');
+    avisoLogin.style.display = 'block';
+
+    document.getElementById('form-login').style.display = 'block';
+    document.getElementById('form-registro').style.display = 'none';
+
+    history.replaceState(null, '', window.location.pathname);
+
+    setTimeout(() => {
+        avisoLogin.style.transition = 'opacity 0.5s';
+        avisoLogin.style.opacity = '0';
+        setTimeout(() => {
+            avisoLogin.style.display = 'none';
+        }, 500);
+    }, 6000);
+}
+      if (estado === 'ok') {
+        aviso.textContent = '✅ Registro exitoso. Ya podés iniciar sesión.';
+        aviso.classList.add('ok');
+        aviso.style.display = 'block';
+        // Limpiar la URL sin recargar la página
+        history.replaceState(null, '', window.location.pathname);
+      } else if (estado === 'error') {
+        const msg = params.get('msg') || 'Error al registrarse. Intentá de nuevo.';
+        aviso.textContent = '❌ ' + msg;
+        aviso.classList.add('error');
+        aviso.style.display = 'block';
+        // Si hay error, mostrar el formulario de registro en vez del login
+        document.getElementById('form-login').style.display = 'none';
+        document.getElementById('form-registro').style.display = 'block';
+        history.replaceState(null, '', window.location.pathname);
+      }
+
+      // Ocultar el aviso automáticamente después de 6 segundos
+      if (estado) {
+        setTimeout(() => {
+          aviso.style.transition = 'opacity 0.5s';
+          aviso.style.opacity = '0';
+          setTimeout(() => { aviso.style.display = 'none'; }, 500);
+        }, 6000);
+      }
+    })();
 
    function togglePassword(idInput, btn) {
   const input = document.getElementById(idInput);
