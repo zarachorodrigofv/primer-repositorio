@@ -11,7 +11,18 @@ requireLogin();
 $user_id = $_SESSION['dni'];
 $pdo = db();
 
-$stmt = $pdo->prepare("SELECT nombre, dni, rol FROM usuarios WHERE dni = ?");
+// ── Guardar teléfono ────────────────────────────────────
+$mensajeTelefono = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_telefono'])) {
+    $tel = preg_replace('/[^0-9+\- ]/', '', $_POST['telefono'] ?? '');
+    $tel = substr(trim($tel), 0, 30);
+    $upd = $pdo->prepare("UPDATE usuarios SET telefono = ? WHERE dni = ?");
+    $upd->execute([$tel !== '' ? $tel : null, $user_id]);
+    $mensajeTelefono = 'ok';
+}
+
+// Incluir teléfono en la query
+$stmt = $pdo->prepare("SELECT COALESCE(NULLIF(TRIM(nombre), ''), CONCAT('DNI ', dni)) AS nombre, dni, rol, telefono FROM usuarios WHERE dni = ?");
 $stmt->execute([$user_id]);
 $user = $stmt->fetch();
 ?>
@@ -116,13 +127,42 @@ $user = $stmt->fetch();
 
     <!-- Datos personales -->
     <div id="datos" class="tab-pane active show">
+      <?php if ($mensajeTelefono === 'ok'): ?>
+        <div class="alert alert-success text-center">✅ Teléfono guardado correctamente.</div>
+      <?php endif; ?>
       <ul class="list-unstyled list-border">
-        <!--<li><strong>Nombre:</strong> <?php echo $user['nombre']; ?></li> ya le indica su nombre arriba-->
-        <li><strong>DNI:</strong> <?php echo $user['dni']; ?></li>
-        <!-- <li><strong>Fecha de nacimiento:</strong></li>  añadir info real de la bd indicar ej: " 02/08/06 (19 años) " -->
-        <li><strong>Colegio:</strong> E.E.S.T N°6 Berazategui</li> <!-- conectar con la bd -->
-        <li><strong>Email:</strong></li> <!-- conectar con la bd -->
-        <li><strong>Teléfono:</strong></li> <!-- conectar con la bd -->
+        <!--<li><strong>Nombre:</strong> <?php echo $user['nombre']; ?></li>-->
+        <li><strong>DNI:</strong> <?php echo htmlspecialchars($user['dni']); ?></li>
+        <li><strong>Rol:</strong> <?php echo htmlspecialchars(ucfirst($user['rol'])); ?></li>
+        <li><strong>Colegio:</strong> E.E.S.T N°6 Berazategui</li>
+        <li><strong>Email:</strong></li>
+        <!-- Módulo 11: Teléfono editable -->
+        <li>
+          <strong>Teléfono:</strong>
+          <?php if (!empty($user['telefono'])): ?>
+            <span id="telMostrado"><?php echo htmlspecialchars($user['telefono']); ?></span>
+          <?php else: ?>
+            <span id="telMostrado" class="text-muted">Sin registrar</span>
+          <?php endif; ?>
+          <button type="button" class="btn btn-sm btn-outline-secondary ms-2" id="btnEditarTel"
+                  onclick="document.getElementById('formTelefono').style.display='block';this.style.display='none';">
+            ✏️ Editar
+          </button>
+          <form id="formTelefono" method="POST" style="display:none;margin-top:8px;">
+            <div class="input-group" style="max-width:320px;">
+              <input type="tel" name="telefono" class="form-control form-control-sm"
+                     placeholder="Ej: 11 2345 6789"
+                     value="<?php echo htmlspecialchars($user['telefono'] ?? ''); ?>"
+                     maxlength="30">
+              <button type="submit" name="guardar_telefono" class="btn btn-sm btn-primary">Guardar</button>
+              <button type="button" class="btn btn-sm btn-secondary"
+                      onclick="document.getElementById('formTelefono').style.display='none';
+                               document.getElementById('btnEditarTel').style.display='';">
+                Cancelar
+              </button>
+            </div>
+          </form>
+        </li>
       </ul>
     </div>
 

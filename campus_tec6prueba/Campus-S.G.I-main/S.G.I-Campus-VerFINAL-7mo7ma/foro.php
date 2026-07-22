@@ -321,6 +321,304 @@ $posts as $post
 </style>
 </head>
 <body>
+/* +
+   MENU HAMBURGUESA PREMIUM
++ */
+
+.overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 1002;
+    background: rgba(0,0,0,.45);
+    backdrop-filter: blur(5px);
+    justify-content: flex-start;
+}
+
+.overlay.show {
+    display: flex;
+}
+
+/* 
+   PANEL LATERAL
+ */
+
+.menu-panel {
+    width: 320px;
+    min-height: 100vh;
+    position: relative;
+    background: linear-gradient(180deg,#0f3d5e 0%,#164b73 45%,#1f5d8f 100%);
+    padding: 30px 22px;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    scrollbar-width: none;
+    border-right: 1px solid rgba(255,255,255,.08);
+    box-shadow:12px 0 35px rgba(0,0,0,.30);
+    animation: slideIn .35s ease;
+}
+.menu-panel::-webkit-scrollbar {
+    display: none;
+}
+/* Barra superior decorativa */
+.menu-panel::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(90deg,#4fc3f7,#81d4fa,#4fc3f7 );
+}
+
+/* Formas decorativas */
+
+.menu-panel::after {
+    content: "";
+    position: absolute;
+    top: -120px;
+    right: -120px;
+    width: 220px;
+    height: 220px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.04);
+    pointer-events: none;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-100%);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* 
+   CABECERA */
+
+.menu-top {
+    text-align: center;
+    color: white;
+    margin-bottom: 35px;
+}
+
+.menu-top img {
+    width: 100px;
+    height: 100px;
+    object-fit: contain;
+    padding: 10px;
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: 20px;
+    margin-bottom: 18px;
+    box-shadow: 0 8px 20px rgba(0,0,0,.20);
+    transition: .35s ease;
+}
+
+.menu-top img:hover {
+    transform: scale(1.05);
+}
+
+.menu-top h1 {
+    margin: 0;
+    font-size: 25px;
+    font-weight: 700;
+    letter-spacing: .8px;
+}
+
+.menu-top h2 {
+    margin-top: 10px;
+    color: #d8e2ec;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+/* 
+   LINKS
+ */
+
+.menu-links {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex-grow: 1;
+}
+
+.menu-links a {
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding: 15px 18px;
+    color: white;
+    text-decoration: none;
+    font-size: 15px;
+    font-weight: 500;
+    border-radius: 14px;
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(255,255,255,.05);
+    backdrop-filter: blur(4px);
+    transition:
+        transform .25s ease,
+        background .25s ease,
+        border-color .25s ease,
+        box-shadow .25s ease;
+}
+.menu-links a:hover {
+    transform: translateX(6px);
+    background: rgba(255,255,255,.10);
+    border-color: rgba(255,255,255,.15);
+    box-shadow:0 6px 15px rgba(0,0,0,.15);
+}
+
+/* Link activo */
+
+.menu-links a.active {
+    background: linear-gradient(135deg,#2196f3,#42a5f5
+    );
+    border-left: 4px solid white;
+    box-shadow: 0 8px 18px rgba(33,150,243,.35);
+}
+
+/* 
+   PIE DEL MENU */
+
+.menu-bottom {
+    margin-top: 25px;
+    padding: 22px;
+    text-align: center;
+    background: rgba(255,255,255,.05);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 18px;
+    backdrop-filter: blur(8px);
+}
+.menu-bottom .avatar {
+    width: 75px;
+    height: 75px;
+    margin: 0 auto 15px;
+    border-radius: 50%;
+    background: linear-gradient(135deg,#ffffff,#eaf4fb);
+    color: #0f3d5e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 25px;
+    font-weight: 700;
+    border: 4px solid rgba(255,255,255,.15);
+    box-shadow:0 8px 20px rgba(0,0,0,.20);
+}
+
+.menu-bottom p {
+    margin: 0;
+    color: #d8e2ec;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+/* 
+   BOTON CERRAR
+ */
+
+.close-btn {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    width: 42px;
+    height: 42px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255,255,255,.10);
+    color: white;
+    cursor: pointer;
+    font-size: 20px;
+    transition: .3s ease;
+}
+
+.close-btn:hover {
+    background: rgba(255,255,255,.20);
+    transform:
+        rotate(90deg)
+        scale(1.1);
+}
+/* TEMPORAL: PARA HACER QUE LA PAGINA SEA MAS USABLE EN CELULAR, ESCONDER LA BARRA DE NAVEGACION */
+
+@media (max-width: 1500px) {
+  .logo {
+    display: none;
+  }
+  #tit {
+    font-size: 1.5rem;
+    text-align: center;
+  }
+
+    iframe {
+    width: 100% !important;
+    height: 400px !important; /* lo que quieras */
+  }
+}
+aside {
+  background: #f4f6f8;
+  color: #1e293b;
+  padding: 25px;
+  margin-top: 30px;
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 10px;
+  border: 1px solid #d6dce5;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+aside h3 {
+  background: transparent;
+  color: #0f172a;
+  margin: 0 0 20px 0;
+  padding: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  border-bottom: 2px solid #cbd5e1;
+  padding-bottom: 10px;
+  text-align: left;
+}
+
+aside ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+aside ul li {
+  background: #ffffff;
+  margin-bottom: 12px;
+  padding: 14px 18px 14px 45px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  position: relative;
+  font-size: 0.98rem;
+  line-height: 1.5;
+}
+
+aside ul li::before {
+  content: "•";
+  position: absolute;
+  left: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #64748b;
+  font-size: 1.3rem;
+  font-weight: bold;
+}
+aside ul li:hover {
+  background: #f8fafc;
+}
+.op-menu{
+  border-radius: 15px;
+}
+.op-menu:hover{
+  transition: 1s;
+}
 
 <header>
   <div class="navbar">
