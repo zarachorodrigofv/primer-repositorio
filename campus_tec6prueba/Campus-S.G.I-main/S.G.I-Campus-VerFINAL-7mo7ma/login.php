@@ -8,7 +8,7 @@ $dni = isset($_POST['dni']) ? trim($_POST['dni']) : '';
 $password = isset($_POST['password']) ? (string)$_POST['password'] : '';
 
 if ($dni === '' || $password === '') {
-  echo "DNI y contraseña son obligatorios.";
+  header("Location: index.html?login=error&msg=" . urlencode("Completá DNI y contraseña."));
   exit;
 }
 
@@ -19,16 +19,17 @@ if ($conn->connect_error) {
 }
 
 //Traer usuario por DNI
-$sql = "SELECT dni, nombre, password, rol FROM usuarios WHERE dni = ?";
+$sql = "SELECT dni, nombre, password, rol, password_changed FROM usuarios WHERE dni = ?";
 $stmt = $conn->prepare($sql);
 $stmt->bind_param("i", $dni); // dni es INT en tu DB
 $stmt->execute();
 $result = $stmt->get_result();
 
 if ($result->num_rows !== 1) {
-  echo "DNI no encontrado.";
   $stmt->close();
   $conn->close();
+
+  header("Location: index.html?login=error&msg=" . urlencode("DNI no encontrado."));
   exit;
 }
 
@@ -54,18 +55,23 @@ if (strlen($hash) >= 60 && strncmp($hash, '$2y$', 4) === 0) {
 }
 
 if (!$ok) {
-  echo "Contraseña incorrecta.";
   $conn->close();
+
+  header("Location: index.html?login=error&msg=" . urlencode("Contraseña incorrecta."));
   exit;
 }
 
-$_SESSION['dni']     = (int)$usuario['dni'];
-$_SESSION['usuario'] = $usuario['nombre'];
-$_SESSION['rol']     = strtolower(trim($usuario['rol'])); // normalizamos
+$_SESSION['dni']                  = (int)$usuario['dni'];
+$_SESSION['usuario']               = $usuario['nombre'];
+$_SESSION['rol']                   = strtolower(trim($usuario['rol']));
+$_SESSION['must_change_password']  = ((int)$usuario['password_changed'] === 0);
 
 $conn->close();
 
-//Redirigir al menú
-header("Location: SGI.php");
+if (!empty($_SESSION['must_change_password'])) {
+  header("Location: changepassword.html");
+} else {
+  header("Location: SGI.php");
+}
 exit;
 

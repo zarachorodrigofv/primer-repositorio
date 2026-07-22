@@ -48,12 +48,17 @@ if (!$year_id) {
 try {
   $pdo->beginTransaction();
 
-  // 1) upsert en usuarios (rol alumno); password inicial = DNI
-  $passHash = password_hash($dni_str, PASSWORD_DEFAULT);
+  // 1) crear/actualizar usuario de alumno con contraseña temporal estándar
+  $tempPassword = 'Fran123';
+  $passHash = password_hash($tempPassword, PASSWORD_DEFAULT);
   $sqlUser = "
-    INSERT INTO usuarios (dni, nombre, password, rol)
-    VALUES (:dni, :nombre, :pass, 'alumno')
-    ON DUPLICATE KEY UPDATE nombre = VALUES(nombre)
+    INSERT INTO usuarios (dni, nombre, password, rol, password_changed)
+    VALUES (:dni, :nombre, :pass, 'alumno', 0)
+    ON DUPLICATE KEY UPDATE
+      nombre = VALUES(nombre),
+      password = VALUES(password),
+      rol = 'alumno',
+      password_changed = 0
   ";
   $pdo->prepare($sqlUser)->execute([
     ':dni'    => $dni,
@@ -95,6 +100,7 @@ try {
 
   echo json_encode([
     'ok' => true,
+    'temp_password' => $tempPassword,
     'alumno' => [
       'nombre'    => $nombre,
       'dni'       => (string)$dni_str,
