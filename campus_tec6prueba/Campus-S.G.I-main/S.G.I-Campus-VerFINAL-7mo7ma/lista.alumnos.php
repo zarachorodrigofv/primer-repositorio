@@ -88,6 +88,60 @@ if ($rol === 'directivo') {
     // Cualquier otro rol no debería estar acá
     $cursos = [];
 }
+
+$profesores = [];
+$preceptores = [];
+if ($rol === 'directivo') {
+    $stmt = $pdo->query("SELECT dni, nombre FROM usuarios WHERE rol='profesor' ORDER BY nombre");
+    $profesores = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $stmt = $pdo->query("SELECT dni, nombre FROM usuarios WHERE rol='preceptor' ORDER BY nombre");
+    $preceptores = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $asignacionesProfesor = [];
+    $stmt = $pdo->prepare("SELECT u.dni,
+                                 CONCAT(cy.year,' ', cd.division,
+                                        IF(mo.nombre IS NULL,'', CONCAT(' - ', mo.nombre))) AS curso,
+                                 ma.nombre AS materia
+                          FROM docente_materia_curso dmc
+                          JOIN usuarios u ON u.dni = dmc.maestro_dni
+                          JOIN curso_materia cm ON cm.id = dmc.curso_materia_id
+                          JOIN materias ma ON ma.id = cm.materia_id
+                          JOIN curso c ON c.id = cm.curso_id
+                          JOIN curso_year cy ON cy.id = c.curso_year_id
+                          JOIN curso_division cd ON cd.id = c.curso_division_id
+                          LEFT JOIN modalidad mo ON mo.id = c.modalidad_id
+                          WHERE cm.year_escolar_id = ?
+                          ORDER BY u.nombre, curso, ma.nombre");
+    $stmt->execute([$year_id]);
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $asignacionesProfesor[$row['dni']][] = $row['curso'] . ' - ' . $row['materia'];
+    }
+    foreach ($profesores as &$prof) {
+        $prof['asignaciones'] = $asignacionesProfesor[$prof['dni']] ?? [];
+    }
+    unset($prof);
+
+    $asignacionesPreceptor = [];
+    $stmt = $pdo->prepare("SELECT u.dni,
+                                 CONCAT(cy.year,' ', cd.division,
+                                        IF(mo.nombre IS NULL,'', CONCAT(' - ', mo.nombre))) AS curso
+                          FROM preceptor_curso pc
+                          JOIN usuarios u ON u.dni = pc.preceptor_dni
+                          JOIN curso c ON c.id = pc.curso_id
+                          JOIN curso_year cy ON cy.id = c.curso_year_id
+                          JOIN curso_division cd ON cd.id = c.curso_division_id
+                          LEFT JOIN modalidad mo ON mo.id = c.modalidad_id
+                          WHERE pc.year_escolar_id = ?
+                          ORDER BY u.nombre, curso");
+    $stmt->execute([$year_id]);
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $asignacionesPreceptor[$row['dni']][] = $row['curso'];
+    }
+    foreach ($preceptores as &$prep) {
+        $prep['asignaciones'] = $asignacionesPreceptor[$prep['dni']] ?? [];
+    }
+    unset($prep);
+}
 ?>
 
 
@@ -161,8 +215,8 @@ h6{
     border-radius:4px;
 }
 
-/* BOTÓN AGREGAR ALUMNO */
-#btnAgregar {
+/* BOTONES AGREGAR */
+.btn-agregar {
     display:block;
     margin:15px auto;
     padding:10px 20px;
@@ -173,7 +227,9 @@ h6{
     border-radius:5px;
     cursor:pointer;
 }
-#btnAgregar:hover { background:#2563eb; }
+.btn-agregar:hover {
+    background:#2563eb;
+}
 
 /* FORMULARIO AGREGAR ALUMNO */
 #formulario-alumno {
@@ -205,14 +261,68 @@ h6{
 }
 #formulario-alumno button:hover { background:#059669; }
 
+.seccion-selector {
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    gap:10px;
+    margin:10px auto;
+    max-width:1200px;
+}
+.seccion-selector label {
+    font-weight:700;
+}
+.seccion-selector select {
+    padding:8px 12px;
+    border:1px solid #313131;
+    border-radius:4px;
+    font-size:14px;
+}
+.panel-seccion {
+    display:none;
+}
+.panel-seccion.activa {
+    display:block;
+}
+.hidden { display:none !important; }
+.formulario-usuario {
+    margin:15px auto;
+    background:#fff;
+    padding:15px;
+    border-radius:6px;
+    border:1px solid #ddd;
+    display:none;
+    flex-wrap:wrap;
+    gap:10px;
+    max-width:1000px;
+}
+.formulario-usuario input {
+    padding:8px;
+    font-size:14px;
+    width:calc(33.333% - 12px);
+    border:1px solid #ccc;
+    border-radius:4px;
+}
+.formulario-usuario button {
+    padding:8px 15px;
+    font-size:14px;
+    cursor:pointer;
+    background:#10b981;
+    color:#fff;
+    border:none;
+    border-radius:5px;
+}
+.formulario-usuario button:hover { background:#059669; }
+
 /* TABLA */
 main { padding:20px; max-width:1200px; margin:auto; }
 table { width:100%; border-collapse:collapse; background:#fff; box-shadow:0px 2px 5px rgba(0,0,0,0.05); }
 th, td { border:1px solid #e2e8f0; padding:8px; font-size:17px; text-align:left; }
 th { background:#1e293b; color:#fff; }
 tr.extra td { background:#f9fafb; padding:0; }
-.extra-contenido { display:flex; flex-wrap:wrap; gap:10px; font-size:17px; overflow:hidden; max-height:0; transition:max-height 0.3s ease; }
+.extra-contenido { display:flex; flex-wrap:wrap; gap:10px; font-size:17px; overflow:hidden; max-height:0; transition:max-height 0.3s ease; padding:10px; }
 .extra-contenido p { flex:1 1 30%; margin:5px; }
+.extra-contenido button { margin-top:5px; }
 td.acciones { text-align:center; }
 td.acciones button {
     background:#f4f4f4;
@@ -337,58 +447,125 @@ footer { text-align:center; padding:10px; margin-top:20px; font-weight:bold; fon
   </div>
 </header>
 <h6>¡¡¡ATENCION: TODA LA INFORMACION AGREGADA A LA PAGINA SE DEBE PRESENTAR EN FORMATO PAPEL PARA SU RESPECTIVO LEGAJO!!!</h6>
+<?php if ($rol === 'directivo'): ?>
+<div class="seccion-selector">
+    <label for="tipoUsuario">Mostrar:</label>
+    <select id="tipoUsuario">
+        <option value="alumnos">Agregar alumnos</option>
+        <option value="profesores">Agregar profesores</option>
+        <option value="preceptores">Agregar preceptores</option>
+    </select>
+</div>
+<div class="seccion-selector" style="margin-top:0;">
+    <span style="font-size:14px; color:#333;">Para asignar docentes o preceptores a cursos, usá el </span>
+    <a href="panel_control.php" style="padding:8px 12px; background:#0f172a; color:#fff; border-radius:5px; text-decoration:none;">Panel de Control</a>
+</div>
+<?php endif; ?>
+
+<div id="seccion_alumnos" class="panel-seccion activa">
   <div class="busqueda-contenedor">
-  <h4>Tabla de Información de Alumnos:</h4>
-  <select id="filtro_curso" style="padding:6px 12px;border:1px solid #313131;border-radius:4px;">
-    <option value="">Todos los cursos</option>
-    <?php foreach ($cursos as $c): ?>
-      <option value="<?= (int)$c['id'] ?>"><?= htmlspecialchars($c['nombre']) ?></option>
-    <?php endforeach; ?>
-  </select>
-  <input type="text" id="buscador" placeholder="Buscar...">
+    <h4>Tabla de Información de Alumnos:</h4>
+    <select id="filtro_curso" style="padding:6px 12px;border:1px solid #313131;border-radius:4px;">
+      <option value="">Todos los cursos</option>
+      <?php foreach ($cursos as $c): ?>
+        <option value="<?= (int)$c['id'] ?>"><?= htmlspecialchars($c['nombre']) ?></option>
+      <?php endforeach; ?>
+    </select>
+    <input type="text" id="buscador" placeholder="Buscar...">
+  </div>
+
+  <?php if ($puedeAgregar): ?>
+  <button id="btnAgregar" class="btn-agregar" onclick="toggleForm('formulario-alumno')">➕ Agregar Alumno</button>
+  <?php endif; ?>
+
+  <?php if ($puedeAgregar): ?>
+  <div id="formulario-alumno" class="formulario-usuario">
+    <select id="curso_id" style="width:calc(25% - 12px);padding:8px;border:1px solid #ccc;border-radius:4px;">
+      <option value="" selected disabled>Elegí un curso</option>
+      <?php foreach ($cursos as $c): ?>
+        <option value="<?= (int)$c['id'] ?>"><?= htmlspecialchars($c['nombre']) ?></option>
+      <?php endforeach; ?>
+    </select>
+
+    <input type="text" id="nombre" placeholder="Apellido y Nombre">
+    <input type="text" id="dni" placeholder="DNI">
+    <input type="text" id="telefono" placeholder="Teléfono">
+    <input type="text" id="direccion" placeholder="Dirección">
+    <input type="text" id="ausente" placeholder="Ausente">
+    <input type="text" id="presente" placeholder="Presente">
+    <button type="button" onclick="agregarAlumno()">Agregar</button>
+  </div>
+  <?php endif; ?>
+
+  <main>
+  <table id="mitabla">
+  <thead>
+  <tr>
+  <th>Apellido y Nombre</th>
+  <th>DNI</th>
+  <th>Ausente</th>
+  <th>Presente</th>
+  <th>Dirección</th>
+  <th>Teléfono</th>
+  <th>Acciones</th>
+  </tr>
+  </thead>
+  <tbody id="cuerpoTabla"></tbody>
+  </table>
+  </main>
 </div>
 
-<?php if ($puedeAgregar): ?>
-<button id="btnAgregar" onclick="toggleForm()">➕ Agregar Alumno</button>
-<?php endif; ?>
+<?php if ($rol === 'directivo'): ?>
+<div id="seccion_profesores" class="panel-seccion hidden">
+  <div class="busqueda-contenedor">
+    <h4>Tabla de Profesores</h4>
+  </div>
+  <button id="btnAgregarProfesor" class="btn-agregar" onclick="toggleForm('formulario-profesor')">➕ Agregar Profesor</button>
+  <div id="formulario-profesor" class="formulario-usuario">
+    <input type="text" id="profesor_nombre" placeholder="Apellido y Nombre">
+    <input type="text" id="profesor_dni" placeholder="DNI">
+    <input type="password" id="profesor_password" placeholder="Contraseña (opcional)">
+    <button type="button" onclick="agregarUsuario('profesor')">Agregar profesor</button>
+  </div>
+  <main>
+  <table id="tablaProfesores">
+  <thead>
+    <tr>
+      <th>Apellido y Nombre</th>
+      <th>DNI</th>
+      <th>Contraseña temporal</th>
+    </tr>
+  </thead>
+  <tbody id="profesoresBody"></tbody>
+  </table>
+  </main>
+</div>
 
-<?php if ($puedeAgregar): ?>
-<div id="formulario-alumno">
-  <select id="curso_id" style="width:calc(25% - 12px);padding:8px;border:1px solid #ccc;border-radius:4px;">
-    <option value="" selected disabled>Elegí un curso</option>
-    <?php foreach ($cursos as $c): ?>
-      <option value="<?= (int)$c['id'] ?>"><?= htmlspecialchars($c['nombre']) ?></option>
-    <?php endforeach; ?>
-  </select>
-
-  <input type="text" id="nombre" placeholder="Apellido y Nombre">
-  <input type="text" id="dni" placeholder="DNI">
-  <input type="text" id="telefono" placeholder="Teléfono">
-  <input type="text" id="direccion" placeholder="Dirección">
-  <input type="text" id="ausente" placeholder="Ausente">
-  <input type="text" id="presente" placeholder="Presente">
-  <button onclick="agregarAlumno()">Agregar</button>
+<div id="seccion_preceptores" class="panel-seccion hidden">
+  <div class="busqueda-contenedor">
+    <h4>Tabla de Preceptores</h4>
+  </div>
+  <button id="btnAgregarPreceptor" class="btn-agregar" onclick="toggleForm('formulario-preceptor')">➕ Agregar Preceptor</button>
+  <div id="formulario-preceptor" class="formulario-usuario">
+    <input type="text" id="preceptor_nombre" placeholder="Apellido y Nombre">
+    <input type="text" id="preceptor_dni" placeholder="DNI">
+    <input type="password" id="preceptor_password" placeholder="Contraseña (opcional)">
+    <button type="button" onclick="agregarUsuario('preceptor')">Agregar preceptor</button>
+  </div>
+  <main>
+  <table id="tablaPreceptores">
+  <thead>
+    <tr>
+      <th>Apellido y Nombre</th>
+      <th>DNI</th>
+      <th>Contraseña temporal</th>
+    </tr>
+  </thead>
+  <tbody id="preceptoresBody"></tbody>
+  </table>
+  </main>
 </div>
 <?php endif; ?>
-
-
-
-<main>
-<table id="mitabla">
-<thead>
-<tr>
-<th>Apellido y Nombre</th>
-<th>DNI</th>
-<th>Ausente</th>
-<th>Presente</th>
-<th>Dirección</th>
-<th>Teléfono</th>
-<th>Acciones</th>
-</tr>
-</thead>
-<tbody id="cuerpoTabla"></tbody>
-</table>
-</main>
  <!-- 🟦 BOTÓN Y VENTANA DE MENSAJES -->
    <a href="msg.php"><button id="boton-flotante" >💬</button></a>
 <footer>
@@ -399,9 +576,20 @@ footer { text-align:center; padding:10px; margin-top:20px; font-weight:bold; fon
 window.APP_USER_NAME = "<?=htmlspecialchars($_SESSION['usuario'] ?? $user['nombre'] ?? 'Usuario');?>"; // Iniciales
 
 // Mostrar/ocultar formulario
-function toggleForm(){
-    const f=document.getElementById("formulario-alumno");
-    f.style.display=(f.style.display==="none" || f.style.display==="")?"flex":"none";
+function toggleForm(formId){
+    const f = document.getElementById(formId || 'formulario-alumno');
+    if (!f) return;
+    f.style.display = (f.style.display === 'none' || f.style.display === '') ? 'flex' : 'none';
+}
+
+function mostrarSeccion(tipo){
+    const secciones = ['alumnos','profesores','preceptores'];
+    secciones.forEach(s => {
+        const panel = document.getElementById('seccion_' + s);
+        if (!panel) return;
+        panel.classList.toggle('activa', s === tipo);
+        panel.classList.toggle('hidden', s !== tipo);
+    });
 }
 
 // Crear fila alumno
@@ -663,7 +851,8 @@ document.getElementById("buscador").addEventListener("input", function(){
         });
     });
 });
- function pintarAlumnos(lista){
+
+function pintarAlumnos(lista){
   const tbody = document.getElementById('cuerpoTabla');
   tbody.innerHTML = '';
   for (const a of lista) {
@@ -680,6 +869,7 @@ document.getElementById("buscador").addEventListener("input", function(){
     });
   }
 }
+
 function cargarAlumnos(){
   const sel = document.getElementById('filtro_curso');
   const params = sel && sel.value ? ('?curso_id='+encodeURIComponent(sel.value)) : '';
@@ -713,11 +903,165 @@ function cargarAlumnos(){
   });
 }
 
-// Al entrar a la página, cargá alumnos:
+const profesoresIniciales = <?= json_encode($profesores) ?>;
+const preceptoresIniciales = <?= json_encode($preceptores) ?>;
+
+function crearFilaUsuario(datos, tipo) {
+    const tbody = document.getElementById(tipo === 'profesor' ? 'profesoresBody' : 'preceptoresBody');
+    if (!tbody) return;
+    const fila = document.createElement('tr');
+    const safeNombre = String(datos.nombre).replace(/'/g, "\\'");
+    fila.innerHTML = `
+      <td>${datos.nombre}</td>
+      <td>${datos.dni}</td>
+      <td>
+        <button class="btn-agregar" style="margin:0; padding:6px 10px; font-size:13px;" onclick="togglePasswordRow('${datos.dni}', '${safeNombre}', '${tipo}')">
+          Mostrar / Resetear
+        </button>
+      </td>
+    `;
+    tbody.appendChild(fila);
+
+    const asignaciones = Array.isArray(datos.asignaciones) ? datos.asignaciones : [];
+    const asignacionText = asignaciones.length > 0
+        ? asignaciones.map(item => `<li>${item}</li>`).join('')
+        : (tipo === 'profesor'
+            ? '<li>No hay materias ni cursos asignados a este docente.</li>'
+            : '<li>No hay cursos asignados a este preceptor.</li>');
+
+    const filaExtra = document.createElement('tr');
+    filaExtra.className = 'extra';
+    filaExtra.innerHTML = `
+      <td colspan="3">
+        <div class="extra-contenido" id="password-detail-${tipo}-${datos.dni}" style="display:none; max-height:0px; overflow:hidden;">
+          <p><strong>Asignaciones:</strong></p>
+          <ul style="margin:0 0 10px 20px; padding:0;">${asignacionText}</ul>
+          <p><strong>Contraseña temporal:</strong> <span class="password-value">Pro1234</span></p>
+          <button type="button" class="btn-agregar" style="margin:0; padding:6px 10px; font-size:13px;" onclick="resetPassword('${datos.dni}', '${safeNombre}', '${tipo}')">Generar clave</button>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(filaExtra);
+}
+
+function pintarProfesores(){
+    const tbody = document.getElementById('profesoresBody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    profesoresIniciales.forEach(u => crearFilaUsuario(u, 'profesor'));
+}
+
+function pintarPreceptores(){
+    const tbody = document.getElementById('preceptoresBody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    preceptoresIniciales.forEach(u => crearFilaUsuario(u, 'preceptor'));
+}
+
+function agregarUsuario(tipo){
+    const nombre = document.getElementById(tipo + '_nombre')?.value.trim() || '';
+    const dni = document.getElementById(tipo + '_dni')?.value.trim() || '';
+    const password = document.getElementById(tipo + '_password')?.value || '';
+    if (!nombre || !dni) {
+        alert('Completa nombre y DNI para ' + tipo);
+        return;
+    }
+
+    const form = new FormData();
+    form.append('nombre', nombre);
+    form.append('dni', dni);
+    form.append('rol', tipo);
+    if (password) form.append('password', password);
+
+    fetch('api_agregar_usuario.php', {
+        method: 'POST',
+        body: form,
+        credentials: 'same-origin'
+    })
+    .then(r => r.json())
+    .then(j => {
+        if (!j.ok) {
+            alert(j.msg || 'Error al guardar usuario');
+            return;
+        }
+        if (tipo === 'profesor') {
+            profesoresIniciales.push(j.usuario);
+            pintarProfesores();
+        } else {
+            preceptoresIniciales.push(j.usuario);
+            pintarPreceptores();
+        }
+        alert('Usuario creado correctamente. Contraseña temporal: ' + j.temp_password);
+        const formDiv = document.getElementById('formulario-' + tipo);
+        if (formDiv) {
+            formDiv.querySelectorAll('input').forEach(i => i.value = '');
+            formDiv.style.display = 'none';
+        }
+    })
+    .catch(() => alert('Error de red al guardar usuario'));
+}
+
+function togglePasswordRow(dni, nombre, tipo) {
+    const detail = document.getElementById('password-detail-' + tipo + '-' + dni);
+    if (!detail) return;
+
+    const shouldOpen = detail.style.display !== 'block';
+    detail.style.display = shouldOpen ? 'block' : 'none';
+    detail.style.maxHeight = shouldOpen ? detail.scrollHeight + 'px' : '0px';
+}
+
+function resetPassword(dni, nombre, tipo) {
+    const confirmReset = confirm('Generar una nueva contraseña temporal para ' + nombre + ' (' + tipo + ')?');
+    if (!confirmReset) {
+        return;
+    }
+
+    const form = new FormData();
+    form.append('dni', dni);
+
+    fetch('api_reset_usuario_password.php', {
+        method: 'POST',
+        body: form,
+        credentials: 'same-origin'
+    })
+    .then(r => r.json())
+    .then(j => {
+        if (!j.ok) {
+            alert(j.msg || 'No se pudo resetear la contraseña');
+            return;
+        }
+        const span = document.querySelector('#password-detail-' + tipo + '-' + dni + ' .password-value');
+        if (span) {
+            span.textContent = j.temp_password;
+        }
+
+        const detail = document.getElementById('password-detail-' + tipo + '-' + dni);
+        if (detail) {
+            detail.style.display = 'block';
+            detail.style.maxHeight = detail.scrollHeight + 'px';
+        }
+    })
+    .catch(() => alert('Error de red al resetear contraseña'));
+}
+
+function cargarTodos(){
+    cargarAlumnos();
+    pintarProfesores();
+    pintarPreceptores();
+}
+
 document.addEventListener('DOMContentLoaded', function(){
-  cargarAlumnos();
+  cargarTodos();
   const sel = document.getElementById('filtro_curso');
   if (sel) sel.addEventListener('change', cargarAlumnos);
+
+  const tipoUsuario = document.getElementById('tipoUsuario');
+  if (tipoUsuario) {
+      tipoUsuario.addEventListener('change', function(){
+          mostrarSeccion(this.value);
+      });
+      mostrarSeccion(tipoUsuario.value || 'alumnos');
+  }
 });
 
 </script>

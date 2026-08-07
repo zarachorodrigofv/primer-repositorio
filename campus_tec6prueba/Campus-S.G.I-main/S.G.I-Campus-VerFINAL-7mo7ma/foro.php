@@ -317,10 +317,10 @@ h1#tit { font-size:2em; border:5px solid white; }
   .logo{display: none;}
   .title-box h1 { font-size:18px; }
 }
-$posts as $post
 </style>
 </head>
 <body>
+<style>
 /* +
    MENU HAMBURGUESA PREMIUM
 + */
@@ -619,6 +619,7 @@ aside ul li:hover {
 .op-menu:hover{
   transition: 1s;
 }
+</style>
 
 <header>
   <div class="navbar">

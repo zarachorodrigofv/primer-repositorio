@@ -96,6 +96,21 @@ $sql = "
     -- Final (guardada en el cuatrimestre 2)
     n2.nota_final      AS final_num,
 
+    -- Intensificaciones
+    COALESCE(n2.intens_diciembre, n1.intens_diciembre) AS intens_diciembre,
+    COALESCE(n2.intens_febrero, n1.intens_febrero) AS intens_febrero,
+    COALESCE(n2.intens_marzo, n1.intens_marzo) AS intens_marzo,
+
+    CASE
+      WHEN COALESCE(n2.nota_final, n1.nota_final, 0) >= 6 THEN 0
+      ELSE 1
+    END AS debe_recursar,
+
+    CASE
+      WHEN COALESCE(n2.nota_final, n1.nota_final, 0) >= 6 THEN ''
+      ELSE 'Debe 1 materia, tiene que recursarla'
+    END AS mensaje_recursar,
+
     -- Observaciones (priorizo las de C2, si no hay tomo las de C1)
     COALESCE(n2.observaciones, n1.observaciones) AS obs
 

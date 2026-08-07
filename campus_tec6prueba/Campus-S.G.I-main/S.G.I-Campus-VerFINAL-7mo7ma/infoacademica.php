@@ -157,6 +157,36 @@ if ($rol === 'profesor') {
       margin-bottom: 10px;
     }
 
+    .intens-box {
+      display: inline-block;
+      padding: 5px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: bold;
+      background: #e5e7eb;
+      color: #374151;
+      min-width: 110px;
+      text-align: center;
+    }
+    .intens-box.aprobado {
+      background: #dcfce7;
+      color: #166534;
+    }
+    .intens-box.desaprobado {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    .recursar-badge {
+      display: inline-block;
+      margin-left: 8px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #fef3c7;
+      color: #92400e;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
     /* TELEFONO ESCONDER LOGOS */
     @media (max-width: 768px) {
       .logo{ 
@@ -252,11 +282,14 @@ if ($rol === 'profesor') {
         <th>Valorativa C2</th>
         <th>Numérica C2</th>
         <th>Nota Final</th>
+        <th>Intensificación Diciembre</th>
+        <th>Intensificación Febrero</th>
+        <th>Intensificación Marzo</th>
         <th>Observaciones</th>
       </tr>
     </thead>
     <tbody id="tbodyNotas">
-      <tr><td colspan="8">Seleccioná curso y materia…</td></tr>
+      <tr><td colspan="11">Seleccioná curso y materia…</td></tr>
     </tbody>
   </table>
 </div>
@@ -303,6 +336,20 @@ function teSelect(value = '', disabled = true){
   s.disabled = disabled;
   return s;
 }
+function intensSelect(value = '', disabled = true){
+  const s = document.createElement('select');
+  const opts = ['','TEP','TEA','TED'];
+  for (const v of opts){
+    const op = document.createElement('option');
+    op.value = v;
+    op.textContent = v === '' ? 'select' : v;
+    if (v === (value || '')) op.selected = true;
+    s.appendChild(op);
+  }
+  s.disabled = disabled;
+  s.style.minWidth = '100px';
+  return s;
+}
 function numInput(value = '', disabled = true){
   const i = document.createElement('input');
   i.type  = 'number';
@@ -333,7 +380,7 @@ function pintarAlumnosNotas(lista){
   tbodyNotas.innerHTML = '';
 
   if (!lista || !lista.length){
-    tbodyNotas.innerHTML = `<tr><td colspan="8">Sin alumnos</td></tr>`;
+    tbodyNotas.innerHTML = `<tr><td colspan="11">Sin alumnos</td></tr>`;
     contTabla.style.display = 'block';
     return;
   }
@@ -348,7 +395,9 @@ function pintarAlumnosNotas(lista){
 
     // Nombre
     const tdNom = document.createElement('td');
-    tdNom.textContent = a.nombre || '';
+    const nombreText = document.createElement('span');
+    nombreText.textContent = a.nombre || '';
+    tdNom.appendChild(nombreText);
     tr.appendChild(tdNom);
 
     // C1 valorativa
@@ -381,6 +430,27 @@ function pintarAlumnosNotas(lista){
     tdFinal.appendChild(inFinal);
     tr.appendChild(tdFinal);
 
+    // Intensificación Diciembre
+    const tdIntDic = document.createElement('td');
+    const selIntDic = intensSelect(a.intens_diciembre || '', bloqueado);
+    selIntDic.dataset.status = String(a.intens_diciembre || '').toUpperCase();
+    tdIntDic.appendChild(selIntDic);
+    tr.appendChild(tdIntDic);
+
+    // Intensificación Febrero
+    const tdIntFeb = document.createElement('td');
+    const selIntFeb = intensSelect(a.intens_febrero || '', bloqueado);
+    selIntFeb.dataset.status = String(a.intens_febrero || '').toUpperCase();
+    tdIntFeb.appendChild(selIntFeb);
+    tr.appendChild(tdIntFeb);
+
+    // Intensificación Marzo
+    const tdIntMar = document.createElement('td');
+    const selIntMar = intensSelect(a.intens_marzo || '', bloqueado);
+    selIntMar.dataset.status = String(a.intens_marzo || '').toUpperCase();
+    tdIntMar.appendChild(selIntMar);
+    tr.appendChild(tdIntMar);
+
     // Observaciones
     const tdObs = document.createElement('td');
     const inObs = textInput(a.obs ?? '', bloqueado);
@@ -412,7 +482,7 @@ async function cargarMaterias(cursoId){
   selMateria.innerHTML = `<option value="">Cargando...</option>`;
   selMateria.disabled = true;
   contTabla.style.display = 'none';
-  tbodyNotas.innerHTML   = `<tr><td colspan="8">Seleccioná curso y materia…</td></tr>`;
+  tbodyNotas.innerHTML   = `<tr><td colspan="11">Seleccioná curso y materia…</td></tr>`;
   if (panelNotas) panelNotas.style.display = 'none';
 
   if (!cursoId) {
@@ -448,11 +518,11 @@ async function cargarAlumnosNotas(){
   if (!cursoId || !materiaId){
     contTabla.style.display = 'none';
     if (panelNotas) panelNotas.style.display = 'none';
-    tbodyNotas.innerHTML = `<tr><td colspan="8">Seleccioná curso y materia…</td></tr>`;
+    tbodyNotas.innerHTML = `<tr><td colspan="11">Seleccioná curso y materia…</td></tr>`;
     return;
   }
 
-  tbodyNotas.innerHTML = `<tr><td colspan="8">Cargando…</td></tr>`;
+  tbodyNotas.innerHTML = `<tr><td colspan="11">Cargando…</td></tr>`;
   contTabla.style.display = 'block';
   if (panelNotas) panelNotas.style.display = 'block';
 
@@ -464,7 +534,7 @@ async function cargarAlumnosNotas(){
     const j = await r.json();
     if (!j.ok){
       alert(j.msg || 'No se pudieron cargar alumnos/notas');
-      tbodyNotas.innerHTML = `<tr><td colspan="8">Error al cargar</td></tr>`;
+      tbodyNotas.innerHTML = `<tr><td colspan="11">Error al cargar</td></tr>`;
       return;
     }
     pintarAlumnosNotas(j.alumnos || []);
@@ -472,7 +542,7 @@ async function cargarAlumnosNotas(){
   }catch(e){
     console.error(e);
     alert('Error de red al listar alumnos/notas');
-    tbodyNotas.innerHTML = `<tr><td colspan="8">Error de red</td></tr>`;
+    tbodyNotas.innerHTML = `<tr><td colspan="11">Error de red</td></tr>`;
   }
 }
 
@@ -493,7 +563,7 @@ async function guardarNotas(){
   const rows = [];
   tbodyNotas.querySelectorAll('tr').forEach(tr => {
     const tds = tr.querySelectorAll('td');
-    if (tds.length < 8) return;
+    if (tds.length < 11) return;
 
     const dni = parseInt((tds[0].textContent || '').trim(), 10) || 0;
     if (!dni) return;
@@ -505,7 +575,10 @@ async function guardarNotas(){
       c2_val:    tds[4].querySelector('select')?.value || null,
       c2_num:    tds[5].querySelector('input')?.value || null,
       final_num: tds[6].querySelector('input')?.value || null,
-      obs:       tds[7].querySelector('input')?.value || null
+      intens_diciembre: tds[7].querySelector('select')?.value || null,
+      intens_febrero:   tds[8].querySelector('select')?.value || null,
+      intens_marzo:     tds[9].querySelector('select')?.value || null,
+      obs:       tds[10].querySelector('input')?.value || null
     });
   });
 
@@ -560,7 +633,7 @@ if (selCurso){
     selMateria.innerHTML = `<option value="">Elegí materia</option>`;
     selMateria.disabled = !v;
     contTabla.style.display = 'none';
-    tbodyNotas.innerHTML = `<tr><td colspan="8">Seleccioná curso y materia…</td></tr>`;
+    tbodyNotas.innerHTML = `<tr><td colspan="11">Seleccioná curso y materia…</td></tr>`;
     if (v) cargarMaterias(v);
   });
 }

@@ -72,14 +72,20 @@ try {
       nota_valorativa,
       nota_numerica,
       nota_final,
+      intens_diciembre,
+      intens_febrero,
+      intens_marzo,
       observaciones
     )
-    VALUES (:dni, :mat, :year, :c, :val, :num, :final, :obs)
+    VALUES (:dni, :mat, :year, :c, :val, :num, :final, :intens_dic, :intens_feb, :intens_mar, :obs)
     ON DUPLICATE KEY UPDATE
       nota_valorativa = VALUES(nota_valorativa),
       nota_numerica   = VALUES(nota_numerica),
       nota_final      = VALUES(nota_final),
-      observaciones   = VALUES(observaciones)
+      intens_diciembre = VALUES(intens_diciembre),
+      intens_febrero   = VALUES(intens_febrero),
+      intens_marzo     = VALUES(intens_marzo),
+      observaciones    = VALUES(observaciones)
   ";
   $stmt = $pdo->prepare($sql);
 
@@ -95,6 +101,9 @@ try {
     $c2_raw = $row['c2_num'] ?? '';
 
     $obs    = $row['obs'] ?? null;
+    $intensDic = $row['intens_diciembre'] ?? null;
+    $intensFeb = $row['intens_febrero'] ?? null;
+    $intensMar = $row['intens_marzo'] ?? null;
 
     // Normalizo numéricas
     $c1_num = ($c1_raw === '' ? null : (float)$c1_raw);
@@ -116,6 +125,9 @@ try {
       ':val'   => $c1_val,
       ':num'   => $c1_num,
       ':final' => null,
+      ':intens_dic' => $intensDic,
+      ':intens_feb' => $intensFeb,
+      ':intens_mar' => $intensMar,
       ':obs'   => $obs,
     ]);
 
@@ -128,6 +140,9 @@ try {
       ':val'   => $c2_val,
       ':num'   => $c2_num,
       ':final' => $final,
+      ':intens_dic' => $intensDic,
+      ':intens_feb' => $intensFeb,
+      ':intens_mar' => $intensMar,
       ':obs'   => $obs,
     ]);
   }
