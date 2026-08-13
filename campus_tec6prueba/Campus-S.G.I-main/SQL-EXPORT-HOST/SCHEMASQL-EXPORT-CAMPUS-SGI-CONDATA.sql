@@ -487,19 +487,18 @@ CREATE TABLE `notas_detalle` (
   `cuatrimestre` enum('1','2','F') NOT NULL,
   `nota_valorativa` enum('TEP','TEA','TED') DEFAULT NULL,
   `nota_numerica` decimal(4,2) DEFAULT NULL,
-  `nota_concepto` decimal(4,2) DEFAULT NULL,
-  `nota_tp` decimal(4,2) DEFAULT NULL,
-  `nota_examen` decimal(4,2) DEFAULT NULL,
   `nota_final` decimal(5,2) DEFAULT NULL,
+  `intens_diciembre` varchar(10) DEFAULT NULL,
+  `intens_febrero` varchar(10) DEFAULT NULL,
+  `intens_marzo` varchar(10) DEFAULT NULL,
   `observaciones` text DEFAULT NULL,
-  `fecha_actualizacion` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Volcado de datos para la tabla `notas_detalle`
 --
 
-INSERT INTO `notas_detalle` (`id`, `alumno_dni`, `materia_id`, `year_escolar_id`, `cuatrimestre`, `nota_valorativa`, `nota_numerica`, `nota_concepto`, `nota_tp`, `nota_examen`, `nota_final`, `observaciones`, `fecha_actualizacion`) VALUES
+INSERT INTO `notas_detalle` (`id`, `alumno_dni`, `materia_id`, `year_escolar_id`, `cuatrimestre`, `nota_valorativa`, `nota_numerica`, `nota_final`, `intens_diciembre`, `intens_febrero`, `intens_marzo` `observaciones`, ) VALUES
 (135, 98765432, 1, 1, '1', 'TEA', 7.00, NULL, NULL, NULL, NULL, NULL, '2025-11-27 03:05:14'),
 (136, 98765432, 1, 1, '2', 'TEA', 7.00, NULL, NULL, NULL, 7.00, NULL, '2025-11-27 03:05:14'),
 (147, 98765432, 85, 1, '1', 'TEA', 8.00, 9.00, 8.00, 7.00, 8.00, 'Buen Alumno', '2025-11-27 16:56:34'),
