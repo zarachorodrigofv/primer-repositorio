@@ -1,6 +1,5 @@
 <?php
 session_start();
-
 // 1) CONTROL DE ACCESO
 if (!isset($_SESSION['rol']) || !in_array($_SESSION['rol'], ['profesor','preceptor','directivo'])) {
     header("Location: index.html");
