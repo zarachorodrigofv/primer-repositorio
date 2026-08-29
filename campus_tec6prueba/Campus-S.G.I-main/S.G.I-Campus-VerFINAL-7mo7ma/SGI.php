@@ -1,28 +1,23 @@
-
 <?php
-$isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-           || (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443);
+require_once __DIR__ . '/auth.php';
+requireLogin();
 
-session_set_cookie_params([
-  'path'     => '/',
-  // 'domain' => '.sistemagi.ct.ws',
-  'secure'   => $isHttps,          
-  'httponly' => true,
-  'samesite' => 'Lax'
-]);
-session_start();
-
-if (empty($_SESSION['dni']) || empty($_SESSION['rol'])) {
-  header("Location: index.html");
-  exit;
-}
-
-// Variables disponibles para la UI
 $usuario = $_SESSION['usuario'] ?? '';
-$rol     = strtolower(trim($_SESSION['rol']));
-$verListado = in_array($rol, ['profesor','preceptor','directivo'], true);
-$verPanel = in_array($rol, ['preceptor','directivo'], true);
+$rol = currentRole();
+
+$verListado = tieneAccesoListado();
+$verPanel = tieneAccesoPanel();
+$verForo = tieneAccesoForo();
+$verMensajeria = tieneAccesoMensajeria();
+$verAsistencia = tieneAccesoAsistencia();
+$verMaterias = in_array($rol, ROLES_MATERIAS, true);
+$verNotas = in_array($rol, ROLES_NOTAS, true);
+$verInfo = in_array($rol, ROLES_INFO, true);
+$verContactos = in_array($rol, ROLES_CONTACTOS, true);
+$esFamilia = ($rol === 'familia');
+$puedeAsignarProfes = puedeAsignarProfes();
 ?>
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -384,25 +379,32 @@ aside ul li:hover {
   </style>
 </head>
 <body>
+<?php if (isset($_GET['acceso']) && $_GET['acceso'] === 'denegado'): ?>
+<div style="max-width:900px;margin:15px auto;padding:12px 18px;background:#fee2e2;color:#991b1b;border:1px solid #fecaca;border-radius:10px;text-align:center;font-weight:bold;">⛔ <?= htmlspecialchars($_GET['msg'] ?? 'No tenés permisos para esta sección.') ?></div>
+<?php endif; ?>
 
  <div class="navbar">
   <button class="menu-icon" aria-label="Abrir menú" onclick="openMenu()">☰</button>
 
   <div class="menu">
+    <?php if ($verAsistencia): ?><a class="op-menu" href="asistencia.php" onclick="closeMenu()">Asistencia</a><?php endif; ?>
     <?php if ($verListado): ?>
-      <a class="op-menu" href="asistencia.php" onclick="closeMenu()">Asistencia</a>
       <a class="op-menu" href="lista.alumnos.php">Lista de alumnos</a>
     <?php endif; ?>
     <?php if ($verPanel): ?>
       <a class="op-menu" href="panel_control.php">Panel de Control</a>
     <?php endif; ?>
-    
-    
-    <a class="op-menu" href="infoacademica.php">Información académica</a>
-    <a class="op-menu" href="materias.php">Materias</a>
-    <a class="op-menu" href="foro.php" onclick="closeMenu()">Foro</a>
-    <a class="op-menu" href="msg.php">Mensajería</a>
-    <a class="op-menu" href="contactos.php">Contactos</a>
+    <?php if ($puedeAsignarProfes && !$verPanel): ?>
+      <a class="op-menu" href="panel_control.php">Asignar profesores</a>
+    <?php endif; ?>
+    <?php if ($esFamilia): ?>
+      <a class="op-menu" href="panel_familia.php">Mi hijo/a</a>
+    <?php endif; ?>
+    <?php if ($verInfo): ?><a class="op-menu" href="infoacademica.php">Información académica</a><?php endif; ?>
+    <?php if ($verMaterias): ?><a class="op-menu" href="materias.php">Materias</a><?php endif; ?>
+    <?php if ($verForo): ?><a class="op-menu" href="foro.php" onclick="closeMenu()">Foro</a><?php endif; ?>
+    <?php if ($verMensajeria): ?><a class="op-menu" href="msg.php">Mensajería</a><?php endif; ?>
+    <?php if ($verContactos): ?><a class="op-menu" href="contactos.php">Contactos</a><?php endif; ?>
     
   </div>
 
@@ -439,10 +441,11 @@ aside ul li:hover {
         <?php if ($verPanel): ?>
       	<a href="panel_control.php">Panel de Control</a>
     	<?php endif; ?>
-  		  <a class="cont-menu" href="infoacademica.php" onclick="closeMenu()">Información académica</a>
- 	 	    <a class="cont-menu" href="materias.php" onclick="closeMenu()">Materias</a>
-        <a class="cont-menu" href="foro.php" onclick="closeMenu()">Foro</a>
-  		  <a class="cont-menu" href="contactos.php" onclick="closeMenu()">Contactos</a>
+        <?php if ($verInfo): ?><a class="cont-menu" href="infoacademica.php" onclick="closeMenu()">Información académica</a><?php endif; ?>
+        <?php if ($verMaterias): ?><a class="cont-menu" href="materias.php" onclick="closeMenu()">Materias</a><?php endif; ?>
+        <?php if ($verForo): ?><a class="cont-menu" href="foro.php" onclick="closeMenu()">Foro</a><?php endif; ?>
+        <?php if ($verMensajeria): ?><a class="cont-menu" href="msg.php" onclick="closeMenu()">Mensajería</a><?php endif; ?>
+        <?php if ($verContactos): ?><a class="cont-menu" href="contactos.php" onclick="closeMenu()">Contactos</a><?php endif; ?>
 	</div>
 
 

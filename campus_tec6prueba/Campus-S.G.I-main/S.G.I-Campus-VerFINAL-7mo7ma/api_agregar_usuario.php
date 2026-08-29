@@ -4,15 +4,26 @@ require __DIR__.'/config.php';
 require __DIR__.'/auth.php';
 
 requireLogin();
-$rolSesion = strtolower(currentRole() ?? '');
-if ($rolSesion !== 'directivo') {
-    http_response_code(403);
-    echo json_encode(['ok' => false, 'msg' => 'No autorizado']);
-    exit;
-}
+requireCsrf();
+$rolSesion = currentRole();
 
 $rol = strtolower(trim($_POST['rol'] ?? ''));
-$allowedRoles = ['profesor', 'preceptor'];
+$allowedRoles = [];
+
+if (in_array($rolSesion, ['root','admin','directivo'], true)) {
+    $allowedRoles = ['profesor','preceptor','familia'];
+} elseif ($rolSesion === 'jefe_preceptores') {
+    $allowedRoles = ['preceptor'];
+} elseif ($rolSesion === 'preceptor') {
+    $allowedRoles = ['familia'];
+}
+
+
+if (!in_array($rol, $allowedRoles, true)) {
+    http_response_code(403);
+    echo json_encode(['ok' => false, 'msg' => 'No autorizado para crear este tipo de usuario']);
+    exit;
+}
 if (!in_array($rol, $allowedRoles, true)) {
     http_response_code(400);
     echo json_encode(['ok' => false, 'msg' => 'Rol inválido']);
@@ -37,7 +48,7 @@ if ($dni <= 0) {
 }
 
 if ($password === '') {
-    $password = $rol === 'profesor' ? 'Pro1234' : 'Pre1234';
+    $password = $rol === 'profesor' ? 'Pro1234' : ($rol === 'preceptor' ? 'Pre1234' : 'Fam1234');
 }
 
 $hash = password_hash($password, PASSWORD_DEFAULT);

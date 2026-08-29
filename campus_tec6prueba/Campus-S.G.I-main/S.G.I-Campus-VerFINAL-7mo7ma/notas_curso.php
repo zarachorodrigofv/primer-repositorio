@@ -1,23 +1,18 @@
 <?php
-require_once 'auth.php';
-requireLogin();
+require_once __DIR__ . '/auth.php';
+requirePage('notas');
 require_once 'config.php';
 require_once 'helpers_academico.php';
 
 $pdo     = db();
 $rol     = strtolower(trim($_SESSION['rol']));
+$verForo = tieneAccesoForo();
+$verMensajeria = tieneAccesoMensajeria();
+$verInfo = in_array($rol, ROLES_INFO, true);
+$verContactos = in_array($rol, ROLES_CONTACTOS, true);
 $dni     = (int)($_SESSION['dni'] ?? 0);
 $usuario = $_SESSION['usuario'] ?? '';
 $yearId  = currentYearEscolarId($pdo);
-
-// roles autorizados a ver esta pantalla
-if (!in_array($rol, ['profesor','preceptor','directivo','alumno','familia'], true)) {
-    http_response_code(403);
-    echo "<p style='text-align:center;margin-top:40px;font-family:sans-serif'>
-            No tenés permisos para ver las notas de este curso.
-          </p>";
-    exit;
-}
 
 $cursoId   = isset($_GET['curso_id']) ? (int)$_GET['curso_id'] : 0;
 $materiaId = isset($_GET['materia_id']) ? (int)$_GET['materia_id'] : 0;
@@ -28,7 +23,7 @@ if ($cursoId <= 0 || $materiaId <= 0) {
 }
 
 // comprobar que el usuario tenga acceso al curso (para su rol)
-if (!usuarioTieneAccesoACurso($rol, $dni, $cursoId, $yearId) && $rol !== 'directivo') {
+if (!usuarioTieneAccesoACurso($rol, $dni, $cursoId, $yearId) && !in_array($rol, ['directivo','admin','root'], true)) {
     http_response_code(403);
     echo "<p style='text-align:center;margin-top:40px;font-family:sans-serif'>
             No tenés acceso a este curso.
@@ -64,11 +59,11 @@ if (!$infoCurso) {
 $modsUser   = modalidadesPermitidasPorRol($rol, $dni, $yearId);
 $cursoLabel = htmlspecialchars($infoCurso['year'] . ' ' . $infoCurso['division']);
 
-$verListado = in_array($rol, ['profesor','preceptor','directivo'], true);
-$verPanel   = in_array($rol, ['preceptor','directivo'], true);
+$verListado = tieneAccesoListado();
+$verPanel   = tieneAccesoPanel();
 
 // solo el profesor escribe; el resto ve en solo lectura
-$soloLectura = ($rol !== 'profesor');
+$soloLectura = !in_array($rol, ['profesor','preceptor','directivo','admin','root'], true);
 
 $mensaje = "";
 
@@ -159,15 +154,21 @@ function guardarNotasDetalleCuatrimestre(
     }
 }
 
-// SOLO el profesor guarda notas
+// Roles académicos autorizados guardan notas
 if (
     !$soloLectura &&
     $_SERVER['REQUEST_METHOD'] === 'POST' &&
     isset($_POST['notas']) &&
     is_array($_POST['notas'])
 ) {
+    requireCsrf();
     foreach ($_POST['notas'] as $alumnoDni => $datosAlumno) {
         $alumnoDni = (int)$alumnoDni;
+        // El DNI enviado por el navegador nunca alcanza: debe integrar el
+        // curso que ya fue autorizado para esta materia.
+        if (!alumnoEstaEnCurso($pdo, $alumnoDni, $cursoId, $yearId)) {
+            continue;
+        }
 
         // CUATRIMESTRE 1
         $c1_concepto = ($datosAlumno['c1_concepto'] ?? '') !== '' ? (float)$datosAlumno['c1_concepto'] : null;
@@ -398,11 +399,11 @@ if (!empty($alumnos)) {
     <?php if ($verPanel): ?>
       <a href="panel_control.php">Panel de Control</a>
     <?php endif; ?>
-    <a href="infoacademica.php">Información académica</a>
+    <?php if ($verInfo): ?><a href="infoacademica.php">Información académica</a><?php endif; ?>
     <a href="materias.php">Materias</a>
-    <a href="foro.php" onclick="closeMenu()">Foro</a>
-    <a href="msg.php">Mensajería</a>
-    <a href="contactos.php">Contactos</a>
+    <?php if ($verForo): ?><a href="foro.php" onclick="closeMenu()">Foro</a><?php endif; ?>
+    <?php if ($verMensajeria): ?><a href="msg.php">Mensajería</a><?php endif; ?>
+    <?php if ($verContactos): ?><a href="contactos.php">Contactos</a><?php endif; ?>
   </div>
 
   <span class="sgi-title">S.G.I</span>
@@ -437,10 +438,10 @@ if (!empty($alumnos)) {
       <?php if ($verPanel): ?>
         <a href="panel_control.php">Panel de Control</a>
       <?php endif; ?>
-      <a href="infoacademica.php" onclick="closeMenu()">Información académica</a>
+      <?php if ($verInfo): ?><a href="infoacademica.php" onclick="closeMenu()">Información académica</a><?php endif; ?>
       <a href="materias.php" onclick="closeMenu()">Materias</a>
-      <a href="foro.php" onclick="closeMenu()">Foro</a>
-      <a href="contactos.php" onclick="closeMenu()">Contactos</a>
+      <?php if ($verForo): ?><a href="foro.php" onclick="closeMenu()">Foro</a><?php endif; ?>
+      <?php if ($verContactos): ?><a href="contactos.php" onclick="closeMenu()">Contactos</a><?php endif; ?>
     </div>
 
     <div class="menu-bottom">
@@ -465,6 +466,7 @@ if (!empty($alumnos)) {
     <p>No hay alumnos visibles para tu rol en este curso para este año.</p>
   <?php else: ?>
     <form id="formNotas" method="post">
+      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">
       <table>
         <tr>
           <th rowspan="2">DNI</th>
@@ -613,4 +615,3 @@ window.APP_USER_NAME = "<?= htmlspecialchars($usuario ?: 'Usuario'); ?>";
 <script src="/js/main.js"></script>
 </body>
 </html>
-

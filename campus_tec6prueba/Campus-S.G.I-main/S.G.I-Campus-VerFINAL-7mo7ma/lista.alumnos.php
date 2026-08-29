@@ -9,18 +9,22 @@ requireLogin();
 $rolSesion  = strtolower(trim($_SESSION['rol'] ?? ''));
 $rolHelper  = strtolower(trim(currentRole() ?? ''));
 $rol        = $rolSesion ?: $rolHelper;
+$verMensajeria = tieneAccesoMensajeria();
+$verContactos = in_array($rol, ROLES_CONTACTOS, true);
+$verInfo = in_array($rol, ROLES_INFO, true);
+$verPanel = tieneAccesoPanel();
 
 // Normalizar alias: si en la BD usás "docente", lo tratamos como "profesor"
 if ($rol === 'docente') {
     $rol = 'profesor';
 }
 
-// Permisos
-$puedeVer     = in_array($rol, ['profesor','preceptor','directivo'], true);
-$puedeAgregar = in_array($rol, ['preceptor','directivo'], true);
+// Permisos: profesor queda fuera de esta sección.
+$puedeVer = tieneAccesoListado();
+$puedeAgregar = in_array($rol, ['preceptor','admin','directivo','root'], true);
 
 if (!$puedeVer) {
-  header('Location: SGI.php');
+  header('Location: SGI.php?acceso=denegado&msg=' . urlencode('Tu rol no tiene acceso a la lista de alumnos.'));
   exit;
 }
 
@@ -29,9 +33,28 @@ $pdo = db();
 // ========= Año lectivo activo =========
 $yearRow = $pdo->query("SELECT id FROM year_escolar ORDER BY `year` DESC LIMIT 1")->fetch();
 $year_id = (int)($yearRow['id'] ?? 0);
+// Familias y alumnos disponibles para vincular.
+// La relación familiar solo puede ser administrada por preceptor o superior.
+$familiasDisponibles = [];
+$alumnosDisponibles = [];
+if (in_array($rol, ['preceptor','admin','directivo','root'], true)) {
+    $st = $pdo->query("SELECT dni, nombre FROM usuarios WHERE rol='familia' ORDER BY nombre");
+    $familiasDisponibles = $st->fetchAll(PDO::FETCH_ASSOC);
+
+    $st = $pdo->prepare("
+        SELECT DISTINCT u.dni, u.nombre
+        FROM asignado_alumno aa
+        JOIN usuarios u ON u.dni = aa.alumno_dni
+        WHERE aa.year_escolar_id = :year AND aa.estado='activo'
+        ORDER BY u.nombre
+    ");
+    $st->execute([':year'=>$year_id]);
+    $alumnosDisponibles = $st->fetchAll(PDO::FETCH_ASSOC);
+}
+
 
 // ========= Cursos visibles según rol =========
-if ($rol === 'directivo') {
+if (in_array($rol, ['directivo','admin','root'], true)) {
     // Director ve todos los cursos
     $stmt = $pdo->query("
       SELECT c.id,
@@ -91,7 +114,7 @@ if ($rol === 'directivo') {
 
 $profesores = [];
 $preceptores = [];
-if ($rol === 'directivo') {
+if (in_array($rol, ['directivo','admin','root'], true)) {
     $stmt = $pdo->query("SELECT dni, nombre FROM usuarios WHERE rol='profesor' ORDER BY nombre");
     $profesores = $stmt->fetchAll(PDO::FETCH_ASSOC);
     $stmt = $pdo->query("SELECT dni, nombre FROM usuarios WHERE rol='preceptor' ORDER BY nombre");
@@ -433,11 +456,11 @@ footer { text-align:center; padding:10px; margin-top:20px; font-weight:bold; fon
       <div class="menu-links">
         <a href="SGI.php" onclick="closeMenu()">Inicio</a>
         <a href="lista.alumnos.php" onclick="closeMenu()">Lista de alumnos</a>
-        <a href="infoacademica.php" onclick="closeMenu()">Información académica</a>
-        <a href="materias.php" onclick="closeMenu()">Materias</a>
-        <a href="asistencia.php" onclick="closeMenu()">Asistencia</a>
-        <a href="foro.php" onclick="closeMenu()">Foro</a>
-        <a href="contactos.php" onclick="closeMenu()">Contactos</a>
+        <?php if ($verInfo): ?><a href="infoacademica.php" onclick="closeMenu()">Información académica</a><?php endif; ?>
+        <?php if (in_array($rol, ROLES_MATERIAS, true)): ?><a href="materias.php" onclick="closeMenu()">Materias</a><?php endif; ?>
+        <?php if (tieneAccesoAsistencia()): ?><a href="asistencia.php" onclick="closeMenu()">Asistencia</a><?php endif; ?>
+        <?php if (tieneAccesoForo()): ?><a href="foro.php" onclick="closeMenu()">Foro</a><?php endif; ?>
+        <?php if ($verContactos): ?><a href="contactos.php" onclick="closeMenu()">Contactos</a><?php endif; ?>
       </div>
 
       <div class="menu-bottom">
@@ -447,7 +470,7 @@ footer { text-align:center; padding:10px; margin-top:20px; font-weight:bold; fon
   </div>
 </header>
 <h6>¡¡¡ATENCION: TODA LA INFORMACION AGREGADA A LA PAGINA SE DEBE PRESENTAR EN FORMATO PAPEL PARA SU RESPECTIVO LEGAJO!!!</h6>
-<?php if ($rol === 'directivo'): ?>
+<?php if (in_array($rol, ['directivo','admin','root'], true)): ?>
 <div class="seccion-selector">
     <label for="tipoUsuario">Mostrar:</label>
     <select id="tipoUsuario">
@@ -458,7 +481,8 @@ footer { text-align:center; padding:10px; margin-top:20px; font-weight:bold; fon
 </div>
 <div class="seccion-selector" style="margin-top:0;">
     <span style="font-size:14px; color:#333;">Para asignar docentes o preceptores a cursos, usá el </span>
-    <a href="panel_control.php" style="padding:8px 12px; background:#0f172a; color:#fff; border-radius:5px; text-decoration:none;">Panel de Control</a>
+    <?php if ($verPanel): ?><a href="panel_control.php" style="padding:8px 12px; background:#0f172a; color:#fff; border-radius:5px; text-decoration:none;">Panel de Control</a>
+<?php endif; ?>
 </div>
 <?php endif; ?>
 
@@ -515,7 +539,7 @@ footer { text-align:center; padding:10px; margin-top:20px; font-weight:bold; fon
   </main>
 </div>
 
-<?php if ($rol === 'directivo'): ?>
+<?php if (in_array($rol, ['directivo','admin','root'], true)): ?>
 <div id="seccion_profesores" class="panel-seccion hidden">
   <div class="busqueda-contenedor">
     <h4>Tabla de Profesores</h4>
@@ -566,13 +590,66 @@ footer { text-align:center; padding:10px; margin-top:20px; font-weight:bold; fon
   </main>
 </div>
 <?php endif; ?>
+
+<?php if (in_array($rol, ['preceptor','admin','directivo','root'], true)): ?>
+<div class="panel-seccion" style="margin:20px 0;padding:18px;background:#fff;border-radius:12px;box-shadow:0 4px 10px rgba(0,0,0,.08);">
+  <h3 style="margin-top:0;">👨‍👩‍👧 Gestión de familias</h3>
+  <p style="font-size:13px;color:#64748b;">Las cuentas familiares no se registran desde el inicio de sesión. Se crean y se vinculan desde la escuela.</p>
+
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:15px;">
+    <input id="familia_nombre" type="text" placeholder="Nombre de la familia/tutor" style="padding:8px;border:1px solid #ccc;border-radius:6px;">
+    <input id="familia_dni" type="text" inputmode="numeric" placeholder="DNI" style="padding:8px;border:1px solid #ccc;border-radius:6px;">
+    <input id="familia_password" type="password" placeholder="Contraseña opcional" style="padding:8px;border:1px solid #ccc;border-radius:6px;">
+    <button type="button" class="btn-agregar" onclick="crearFamilia()">➕ Crear familia</button>
+  </div>
+
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;">
+    <div style="flex:1;min-width:220px;">
+      <label>Familia:</label>
+      <select id="vinculo_familia" style="width:100%;padding:8px;">
+        <option value="">Seleccionar familia...</option>
+        <?php foreach ($familiasDisponibles as $f): ?>
+          <option value="<?= htmlspecialchars($f['dni']) ?>"><?= htmlspecialchars($f['nombre']) ?> — DNI <?= htmlspecialchars($f['dni']) ?></option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+    <div style="flex:1;min-width:220px;">
+      <label>Alumno:</label>
+      <select id="vinculo_alumno" style="width:100%;padding:8px;">
+        <option value="">Seleccionar alumno...</option>
+        <?php foreach ($alumnosDisponibles as $a): ?>
+          <option value="<?= htmlspecialchars($a['dni']) ?>"><?= htmlspecialchars($a['nombre']) ?> — DNI <?= htmlspecialchars($a['dni']) ?></option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+    <div style="min-width:150px;">
+      <label>Parentesco:</label>
+      <select id="vinculo_parentesco" style="width:100%;padding:8px;">
+        <option value="Madre">Madre</option>
+        <option value="Padre">Padre</option>
+        <option value="Tutor">Tutor</option>
+      </select>
+    </div>
+    <button type="button" class="btn-agregar" onclick="vincularFamilia()">Vincular</button>
+  </div>
+</div>
+<?php endif; ?>
+
  <!-- 🟦 BOTÓN Y VENTANA DE MENSAJES -->
-   <a href="msg.php"><button id="boton-flotante" >💬</button></a>
+   <?php if ($verMensajeria): ?><a href="msg.php"><button id="boton-flotante" >💬</button></a><?php endif; ?>
 <footer>
 <p>&copy; SGI</p>
 </footer>
 <script src="/js/main.js"></script>
 <script>
+const csrfToken = <?= json_encode(csrfToken()) ?>;
+const fetchSeguro = window.fetch.bind(window);
+window.fetch = (url, options = {}) => {
+  if ((options.method || 'GET').toUpperCase() === 'POST' && options.body instanceof FormData) {
+    options.body.set('csrf_token', csrfToken);
+  }
+  return fetchSeguro(url, options);
+};
 window.APP_USER_NAME = "<?=htmlspecialchars($_SESSION['usuario'] ?? $user['nombre'] ?? 'Usuario');?>"; // Iniciales
 
 // Mostrar/ocultar formulario
@@ -1042,6 +1119,50 @@ function resetPassword(dni, nombre, tipo) {
         }
     })
     .catch(() => alert('Error de red al resetear contraseña'));
+}
+
+
+function crearFamilia() {
+    const nombre = document.getElementById('familia_nombre')?.value.trim();
+    const dni = document.getElementById('familia_dni')?.value.trim();
+    const password = document.getElementById('familia_password')?.value || '';
+    if (!nombre || !dni) { alert('Completá nombre y DNI.'); return; }
+
+    const fd = new FormData();
+    fd.append('nombre', nombre);
+    fd.append('dni', dni);
+    fd.append('rol', 'familia');
+    if (password) fd.append('password', password);
+
+    fetch('api_agregar_usuario.php', {method:'POST', body:fd, credentials:'same-origin'})
+      .then(r=>r.json())
+      .then(j=>{
+        if (!j.ok) { alert(j.msg || 'No se pudo crear la familia.'); return; }
+        alert('Familia creada correctamente.\nContraseña temporal: ' + j.temp_password);
+        location.reload();
+      })
+      .catch(()=>alert('Error de red.'));
+}
+
+function vincularFamilia() {
+    const familia = document.getElementById('vinculo_familia')?.value;
+    const alumno = document.getElementById('vinculo_alumno')?.value;
+    const parentesco = document.getElementById('vinculo_parentesco')?.value || 'Tutor';
+
+    if (!familia || !alumno) { alert('Seleccioná familia y alumno.'); return; }
+
+    const fd = new FormData();
+    fd.append('familia_dni', familia);
+    fd.append('alumno_dni', alumno);
+    fd.append('parentesco', parentesco);
+
+    fetch('api_vincular_familia.php', {method:'POST', body:fd, credentials:'same-origin'})
+      .then(r=>r.json())
+      .then(j=>{
+        if (!j.ok) { alert(j.msg || 'No se pudo vincular.'); return; }
+        alert('Familia vinculada al alumno correctamente.');
+      })
+      .catch(()=>alert('Error de red.'));
 }
 
 function cargarTodos(){

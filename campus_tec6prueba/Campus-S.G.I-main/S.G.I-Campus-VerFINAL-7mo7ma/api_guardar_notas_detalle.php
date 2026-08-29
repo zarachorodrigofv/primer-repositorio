@@ -5,8 +5,9 @@ require __DIR__.'/config.php';
 require __DIR__.'/auth.php';
 
 requireLogin();
+requireCsrf();
 $rol = strtolower($_SESSION['rol'] ?? '');
-if (!in_array($rol, ['profesor','preceptor','directivo'], true)) {
+if (!in_array($rol, ['profesor','preceptor','directivo','admin','root'], true)) {
   http_response_code(403);
   echo json_encode(['ok'=>false,'msg'=>'No autorizado']);
   exit;
@@ -114,6 +115,65 @@ try {
     if ($c1_num !== null && $c2_num !== null) {
       // promedio redondeando PARA ABAJO
       $final = floor(($c1_num + $c2_num) / 2);
+    }
+
+    // Seguridad por alumno/curso:
+    // el preceptor solo puede calificar alumnos de sus cursos y la materia de ese curso.
+    if ($rol === 'preceptor') {
+      $dniPrec = (int)($_SESSION['dni'] ?? 0);
+      $stAcc = $pdo->prepare("
+        SELECT 1
+        FROM asignado_alumno aa
+        JOIN preceptor_curso pc
+          ON pc.curso_id = aa.curso_id
+         AND pc.year_escolar_id = aa.year_escolar_id
+        JOIN curso_materia cm
+          ON cm.curso_id = aa.curso_id
+         AND cm.year_escolar_id = aa.year_escolar_id
+         AND cm.materia_id = :mat
+        WHERE aa.alumno_dni = :alumno
+          AND aa.year_escolar_id = :year
+          AND aa.estado = 'activo'
+          AND pc.preceptor_dni = :prec
+        LIMIT 1
+      ");
+      $stAcc->execute([
+        ':alumno'=>$dni,
+        ':year'=>$year_id,
+        ':mat'=>$materia_id,
+        ':prec'=>$dniPrec
+      ]);
+      if (!$stAcc->fetchColumn()) {
+        continue;
+      }
+    }
+
+    if ($rol === 'profesor') {
+      $dniProfe = (int)($_SESSION['dni'] ?? 0);
+      $stAcc = $pdo->prepare("
+        SELECT 1
+        FROM asignado_alumno aa
+        JOIN curso_materia cm
+          ON cm.curso_id = aa.curso_id
+         AND cm.year_escolar_id = aa.year_escolar_id
+         AND cm.materia_id = :mat
+        JOIN docente_materia_curso dmc
+          ON dmc.curso_materia_id = cm.id
+         AND dmc.maestro_dni = :profe
+        WHERE aa.alumno_dni = :alumno
+          AND aa.year_escolar_id = :year
+          AND aa.estado = 'activo'
+        LIMIT 1
+      ");
+      $stAcc->execute([
+        ':alumno'=>$dni,
+        ':year'=>$year_id,
+        ':mat'=>$materia_id,
+        ':profe'=>$dniProfe
+      ]);
+      if (!$stAcc->fetchColumn()) {
+        continue;
+      }
     }
 
     // 1º cuatrimestre (nota_final NULL aquí)

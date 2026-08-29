@@ -1,114 +1,65 @@
 <?php
 session_start();
-// 1) CONTROL DE ACCESO
-if (!isset($_SESSION['rol']) || !in_array($_SESSION['rol'], ['profesor','preceptor','directivo'])) {
-    header("Location: index.html");
-    exit;
-}
+
+require_once __DIR__ . '/auth.php';
+requirePage('asistencia');
+$rol = currentRole();
 
 $rol        = strtolower($_SESSION['rol']);
 $dniUsuario = (int)$_SESSION['dni'];
 
-// 2) CONEXIÓN A BD
 require __DIR__ . '/config.php';
-$conn = db()->query('SELECT 1'); // warm-up
 $pdo  = db();
-
-// Helper para mysqli compatible con el código existente (PDO ya disponible)
 $conn = new mysqli("localhost", "root", "", "campus");
 if ($conn->connect_error) die("Error de conexión: " . $conn->connect_error);
 $conn->set_charset("utf8mb4");
 
-// 3) AÑO ESCOLAR ACTUAL
+// AÑO ESCOLAR
 $yearActual    = (int)date('Y');
 $yearEscolarId = 0;
-
 $stmt = $conn->prepare("SELECT id FROM year_escolar WHERE year = ? LIMIT 1");
 $stmt->bind_param("i", $yearActual);
 $stmt->execute();
 $stmt->bind_result($yearEscolarId);
 $stmt->fetch();
 $stmt->close();
-
 if (!$yearEscolarId) {
     $res = $conn->query("SELECT id FROM year_escolar ORDER BY year DESC LIMIT 1");
     $row = $res->fetch_assoc();
     $yearEscolarId = $row ? (int)$row['id'] : 1;
 }
 
-// 4) CURSOS SEGÚN ROL
+// CURSOS SEGÚN ROL
 $cursos = [];
-
-if ($rol === 'directivo') {
-    $sql = "SELECT c.id,
-                   CONCAT(cy.year,' ', cd.division,
-                          IF(m.nombre IS NULL,'', CONCAT(' - ', m.nombre))) AS nombre
-            FROM curso c
-            JOIN curso_year cy ON cy.id = c.curso_year_id
-            JOIN curso_division cd ON cd.id = c.curso_division_id
-            LEFT JOIN modalidad m ON m.id = c.modalidad_id
-            ORDER BY cy.id, cd.id";
-    $res = $conn->query($sql);
+if (in_array($rol, ['directivo','admin','root'], true)) {
+    $res = $conn->query("SELECT c.id, CONCAT(cy.year,' ', cd.division, IF(m.nombre IS NULL,'', CONCAT(' - ', m.nombre))) AS nombre
+                         FROM curso c JOIN curso_year cy ON cy.id=c.curso_year_id JOIN curso_division cd ON cd.id=c.curso_division_id LEFT JOIN modalidad m ON m.id=c.modalidad_id ORDER BY cy.id, cd.id");
     while ($fila = $res->fetch_assoc()) $cursos[] = $fila;
-
 } elseif ($rol === 'profesor') {
-    $sql = "SELECT DISTINCT c.id,
-                   CONCAT(cy.year,' ', cd.division,
-                          IF(m.nombre IS NULL,'', CONCAT(' - ', m.nombre))) AS nombre
-            FROM docente_materia_curso dmc
-            JOIN curso_materia cm ON cm.id = dmc.curso_materia_id
-            JOIN curso c ON c.id = cm.curso_id
-            JOIN curso_year cy ON cy.id = c.curso_year_id
-            JOIN curso_division cd ON cd.id = c.curso_division_id
-            LEFT JOIN modalidad m ON m.id = c.modalidad_id
-            WHERE dmc.maestro_dni = ?
-            ORDER BY cy.id, cd.id";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("i", $dniUsuario);
-    $stmt->execute();
-    $res = $stmt->get_result();
-    while ($fila = $res->fetch_assoc()) $cursos[] = $fila;
-    $stmt->close();
-
+    $stmt = $conn->prepare("SELECT DISTINCT c.id, CONCAT(cy.year,' ', cd.division, IF(m.nombre IS NULL,'', CONCAT(' - ', m.nombre))) AS nombre
+                            FROM docente_materia_curso dmc JOIN curso_materia cm ON cm.id=dmc.curso_materia_id JOIN curso c ON c.id=cm.curso_id JOIN curso_year cy ON cy.id=c.curso_year_id JOIN curso_division cd ON cd.id=c.curso_division_id LEFT JOIN modalidad m ON m.id=c.modalidad_id WHERE dmc.maestro_dni=? ORDER BY cy.id, cd.id");
+    $stmt->bind_param("i", $dniUsuario); $stmt->execute();
+    $res = $stmt->get_result(); while ($fila = $res->fetch_assoc()) $cursos[] = $fila; $stmt->close();
 } elseif ($rol === 'preceptor') {
-    $sql = "SELECT DISTINCT c.id,
-                   CONCAT(cy.year,' ', cd.division,
-                          IF(m.nombre IS NULL,'', CONCAT(' - ', m.nombre))) AS nombre
-            FROM preceptor_curso pc
-            JOIN curso c           ON c.id = pc.curso_id
-            JOIN curso_year cy     ON cy.id = c.curso_year_id
-            JOIN curso_division cd ON cd.id = c.curso_division_id
-            LEFT JOIN modalidad m  ON m.id = c.modalidad_id
-            WHERE pc.preceptor_dni   = ?
-              AND pc.year_escolar_id = ?
-            ORDER BY cy.id, cd.id";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("ii", $dniUsuario, $yearEscolarId);
-    $stmt->execute();
-    $res = $stmt->get_result();
-    while ($fila = $res->fetch_assoc()) $cursos[] = $fila;
-    $stmt->close();
+    $stmt = $conn->prepare("SELECT DISTINCT c.id, CONCAT(cy.year,' ', cd.division, IF(m.nombre IS NULL,'', CONCAT(' - ', m.nombre))) AS nombre
+                            FROM preceptor_curso pc JOIN curso c ON c.id=pc.curso_id JOIN curso_year cy ON cy.id=c.curso_year_id JOIN curso_division cd ON cd.id=c.curso_division_id LEFT JOIN modalidad m ON m.id=c.modalidad_id WHERE pc.preceptor_dni=? AND pc.year_escolar_id=? ORDER BY cy.id, cd.id");
+    $stmt->bind_param("ii", $dniUsuario, $yearEscolarId); $stmt->execute();
+    $res = $stmt->get_result(); while ($fila = $res->fetch_assoc()) $cursos[] = $fila; $stmt->close();
 }
 
-// 5) PARÁMETROS DE FILTRO
+// PARÁMETROS
 $cursoSeleccionado = isset($_REQUEST['curso_id']) ? (int)$_REQUEST['curso_id'] : (count($cursos) ? (int)$cursos[0]['id'] : 0);
 $idsPermitidos     = array_map(fn($c) => (int)$c['id'], $cursos);
-if (!in_array($cursoSeleccionado, $idsPermitidos, true)) {
-    $cursoSeleccionado = count($cursos) ? (int)$cursos[0]['id'] : 0;
-}
-
+if (!in_array($cursoSeleccionado, $idsPermitidos, true)) $cursoSeleccionado = count($cursos) ? (int)$cursos[0]['id'] : 0;
 $mesSeleccionado  = isset($_REQUEST['mes'])  ? (int)$_REQUEST['mes']  : (int)date('n');
 $anioSeleccionado = isset($_REQUEST['anio']) ? (int)$_REQUEST['anio'] : (int)date('Y');
-
-// ── MÓDULO 3: Filtro por día ───────────────────────────────────────────
-// Si se elige un día específico se muestra solo esa columna.
-// Si es "" (vacío) se muestra el mes completo (comportamiento original).
 $diaFiltro = isset($_REQUEST['dia']) && $_REQUEST['dia'] !== '' ? (int)$_REQUEST['dia'] : 0;
 $totalDias = cal_days_in_month(CAL_GREGORIAN, $mesSeleccionado, $anioSeleccionado);
 if ($diaFiltro < 0 || $diaFiltro > $totalDias) $diaFiltro = 0;
 
-// 6) GUARDAR ASISTENCIA
+// GUARDAR ASISTENCIA
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar']) && $cursoSeleccionado) {
+    requireCsrf();
     if (isset($_POST['estado']) && is_array($_POST['estado'])) {
         foreach ($_POST['estado'] as $dniAlumno => $dias) {
             $dniAlumno = (int)$dniAlumno;
@@ -117,116 +68,96 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar']) && $cursoS
                 $estado = in_array($estado, ['presente','ausente','tarde','justificado'], true) ? $estado : '';
                 $fecha  = sprintf('%04d-%02d-%02d', $anioSeleccionado, $mesSeleccionado, $dia);
 
-                if ($estado === '') {
-                    $del = $conn->prepare("DELETE FROM asistencia WHERE alumno_dni = ? AND fecha = ?");
-                    $del->bind_param("is", $dniAlumno, $fecha);
-                    $del->execute(); $del->close();
-                    continue;
-                }
+                // Seguridad: el DNI debe pertenecer al curso seleccionado.
+                $chkAl = $conn->prepare("SELECT 1 FROM asignado_alumno WHERE alumno_dni=? AND curso_id=? AND year_escolar_id=? AND estado='activo' LIMIT 1");
+                $chkAl->bind_param("iii", $dniAlumno, $cursoSeleccionado, $yearEscolarId);
+                $chkAl->execute();
+                $tieneAlumno = $chkAl->get_result()->num_rows > 0;
+                $chkAl->close();
+                if (!$tieneAlumno) continue;
 
+                // Recuperar el motivo ANTES de borrar el registro anterior.
                 $motivo = null;
-                $busca  = $conn->prepare("SELECT motivo_justificado FROM asistencia WHERE alumno_dni = ? AND fecha = ? LIMIT 1");
-                $busca->bind_param("is", $dniAlumno, $fecha);
-                $busca->execute();
-                $resultado = $busca->get_result();
-                if ($fila = $resultado->fetch_assoc()) $motivo = $fila['motivo_justificado'];
+                $busca = $conn->prepare("SELECT motivo_justificado FROM asistencia WHERE alumno_dni=? AND fecha=? LIMIT 1");
+                $busca->bind_param("is", $dniAlumno, $fecha); $busca->execute();
+                $res2 = $busca->get_result();
+                if ($f2 = $res2->fetch_assoc()) $motivo = $f2['motivo_justificado'];
                 $busca->close();
 
-                $del = $conn->prepare("DELETE FROM asistencia WHERE alumno_dni = ? AND fecha = ?");
-                $del->bind_param("is", $dniAlumno, $fecha);
-                $del->execute(); $del->close();
+                $del = $conn->prepare("DELETE FROM asistencia WHERE alumno_dni=? AND fecha=?");
+                $del->bind_param("is", $dniAlumno, $fecha); $del->execute(); $del->close();
+                if ($estado === '') continue;
 
-                $ins = $conn->prepare("INSERT INTO asistencia (alumno_dni, fecha, estado, motivo_justificado) VALUES (?, ?, ?, ?)");
-                $ins->bind_param("isss", $dniAlumno, $fecha, $estado, $motivo);
-                $ins->execute(); $ins->close();
+                $ins = $conn->prepare("INSERT INTO asistencia (alumno_dni, fecha, estado, motivo_justificado) VALUES (?,?,?,?)");
+                $ins->bind_param("isss", $dniAlumno, $fecha, $estado, $motivo); $ins->execute(); $ins->close();
             }
         }
         $mensajeOK = "Asistencia guardada correctamente.";
     }
 }
 
-// 7) ALUMNOS DEL CURSO
+// ALUMNOS
 $alumnos = [];
 if ($cursoSeleccionado) {
-    $sql  = "SELECT u.dni, u.nombre FROM asignado_alumno aa
-             JOIN usuarios u ON u.dni = aa.alumno_dni
-             WHERE aa.curso_id = ? AND aa.year_escolar_id = ? AND aa.estado = 'activo'
-             ORDER BY u.nombre";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("ii", $cursoSeleccionado, $yearEscolarId);
-    $stmt->execute();
-    $res  = $stmt->get_result();
-    while ($fila = $res->fetch_assoc()) $alumnos[] = $fila;
-    $stmt->close();
+    $stmt = $conn->prepare("SELECT u.dni, u.nombre FROM asignado_alumno aa JOIN usuarios u ON u.dni=aa.alumno_dni WHERE aa.curso_id=? AND aa.year_escolar_id=? AND aa.estado='activo' ORDER BY u.nombre");
+    $stmt->bind_param("ii", $cursoSeleccionado, $yearEscolarId); $stmt->execute();
+    $res = $stmt->get_result(); while ($fila = $res->fetch_assoc()) $alumnos[] = $fila; $stmt->close();
 }
 
-// 8) ASISTENCIA YA GUARDADA
-$asistencias    = [];
-$motivosPrevios = [];
+// ASISTENCIAS DEL MES
+$asistencias = []; $motivosPrevios = [];
 if ($alumnos) {
-    $dniList  = implode(',', array_map('intval', array_column($alumnos, 'dni')));
-    $desde    = sprintf('%04d-%02d-01', $anioSeleccionado, $mesSeleccionado);
-    $hasta    = sprintf('%04d-%02d-%02d', $anioSeleccionado, $mesSeleccionado, $totalDias);
-
-    $sql  = "SELECT alumno_dni, fecha, estado, motivo_justificado FROM asistencia
-             WHERE alumno_dni IN ($dniList) AND fecha BETWEEN ? AND ?";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("ss", $desde, $hasta);
-    $stmt->execute();
-    $res  = $stmt->get_result();
+    $dniList = implode(',', array_map('intval', array_column($alumnos, 'dni')));
+    $desde   = sprintf('%04d-%02d-01', $anioSeleccionado, $mesSeleccionado);
+    $hasta   = sprintf('%04d-%02d-%02d', $anioSeleccionado, $mesSeleccionado, $totalDias);
+    $stmt = $conn->prepare("SELECT alumno_dni, fecha, estado, motivo_justificado FROM asistencia WHERE alumno_dni IN ($dniList) AND fecha BETWEEN ? AND ?");
+    $stmt->bind_param("ss", $desde, $hasta); $stmt->execute();
+    $res = $stmt->get_result();
     while ($fila = $res->fetch_assoc()) {
         $dia = (int)date('j', strtotime($fila['fecha']));
         $asistencias[(int)$fila['alumno_dni']][$dia] = $fila['estado'];
-        if (!empty($fila['motivo_justificado'])) {
-            $motivosPrevios[$fila['alumno_dni'] . '_' . $dia] = $fila['motivo_justificado'];
-        }
+        if (!empty($fila['motivo_justificado'])) $motivosPrevios[$fila['alumno_dni'].'_'.$dia] = $fila['motivo_justificado'];
     }
     $stmt->close();
 }
 
-// ── MÓDULO 4: Totales de asistencias por alumno ────────────────────────
-$totalesPorAlumno = []; // [dni] => [presentes, ausentes, tardanzas, justificados, total, porcentaje]
+// TOTALES POR ALUMNO
+$totalesPorAlumno = [];
 foreach ($alumnos as $al) {
-    $dni  = (int)$al['dni'];
-    $data = $asistencias[$dni] ?? [];
+    $dni = (int)$al['dni']; $data = $asistencias[$dni] ?? [];
     $p = $a = $t = $j = 0;
     foreach ($data as $dia => $est) {
-        // Solo días laborables (lun-vie)
-        $fechaDia = sprintf('%04d-%02d-%02d', $anioSeleccionado, $mesSeleccionado, $dia);
-        $dow = (int)date('w', strtotime($fechaDia));
+        $dow = (int)date('w', strtotime(sprintf('%04d-%02d-%02d', $anioSeleccionado, $mesSeleccionado, $dia)));
         if ($dow === 0 || $dow === 6) continue;
-        if ($est === 'presente')    $p++;
-        elseif ($est === 'ausente') $a++;
-        elseif ($est === 'tarde')   $t++;
-        elseif ($est === 'justificado') $j++;
+        if ($est==='presente') $p++; elseif ($est==='ausente') $a++; elseif ($est==='tarde') $t++; elseif ($est==='justificado') $j++;
     }
-    $total = $p + $a + $t + $j;
-    $totalesPorAlumno[$dni] = [
-        'presentes'    => $p,
-        'ausentes'     => $a,
-        'tardanzas'    => $t,
-        'justificados' => $j,
-        'total'        => $total,
-        'porcentaje'   => $total > 0 ? round(($p + $j) / $total * 100, 1) : 0,
-    ];
+    $total = $p+$a+$t+$j;
+    $totalesPorAlumno[$dni] = ['presentes'=>$p,'ausentes'=>$a,'tardanzas'=>$t,'justificados'=>$j,'total'=>$total,'porcentaje'=>$total>0?round(($p+$j)/$total*100,1):0];
 }
 
-// Días laborables del mes (para el resumen general)
 $diasLaborablesDelMes = 0;
-for ($d = 1; $d <= $totalDias; $d++) {
-    $dow = (int)date('w', strtotime(sprintf('%04d-%02d-%02d', $anioSeleccionado, $mesSeleccionado, $d)));
-    if ($dow !== 0 && $dow !== 6) $diasLaborablesDelMes++;
-}
+for ($d=1;$d<=$totalDias;$d++) { $dow=(int)date('w',strtotime(sprintf('%04d-%02d-%02d',$anioSeleccionado,$mesSeleccionado,$d))); if ($dow!==0&&$dow!==6) $diasLaborablesDelMes++; }
 
-$nombreUsuario = $_SESSION['usuario'] ?? 'Usuario';
 $meses = [1=>'Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-
-// Columnas a mostrar (filtro por día o mes completo)
 $diasAMostrar = [];
-if ($diaFiltro > 0) {
-    $diasAMostrar = [$diaFiltro];
-} else {
-    for ($d = 1; $d <= $totalDias; $d++) $diasAMostrar[] = $d;
+if ($diaFiltro > 0) { $diasAMostrar = [$diaFiltro]; } else { for ($d=1;$d<=$totalDias;$d++) $diasAMostrar[]=$d; }
+
+// Colores de días del calendario para mobile
+$coloresDias = [];
+for ($d=1;$d<=$totalDias;$d++) {
+    $dow = (int)date('w', strtotime(sprintf('%04d-%02d-%02d',$anioSeleccionado,$mesSeleccionado,$d)));
+    if ($dow===0||$dow===6) { $coloresDias[$d]='finde'; continue; }
+    $hayDatos = false; $todosPresentes = true; $hayAusentes = false;
+    foreach ($alumnos as $al) {
+        $dni = (int)$al['dni'];
+        $est = $asistencias[$dni][$d] ?? '';
+        if ($est!=='') $hayDatos = true;
+        if ($est==='ausente') $hayAusentes = true;
+        if ($est!=='presente'&&$est!=='justificado'&&$est!=='') $todosPresentes = false;
+    }
+    if (!$hayDatos) $coloresDias[$d]='vacio';
+    elseif ($hayAusentes) $coloresDias[$d]='mixto';
+    else $coloresDias[$d]='ok';
 }
 ?>
 <!DOCTYPE html>
@@ -245,160 +176,220 @@ if ($diaFiltro > 0) {
     .title-box { text-align: center; flex-grow: 1; }
     .title-box h1 { margin: 0; font-size: 28px; }
     .title-box h2 { margin: 0; font-size: 16px; font-weight: normal; }
-
     main { padding: 20px; }
-    .contenedor {
-      max-width: 1200px; margin: 20px auto;
-      background: #fff; padding: 20px;
-      border-radius: 15px;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-    }
+    .contenedor { max-width:1200px; margin:20px auto; background:#fff; padding:20px; border-radius:15px; box-shadow:0 4px 8px rgba(0,0,0,.15); }
 
-    /* ── Filtros ── */
-    .filtros-superior {
-      display: flex; gap: 16px; align-items: center; justify-content: center;
-      margin-bottom: 16px; flex-wrap: wrap;
-    }
-    .filtros-superior label { font-weight: bold; font-size: 13px; }
-    .filtros-superior select, .filtros-superior input[type="number"] {
-      padding: 5px 8px; border-radius: 6px; border: 1px solid #999; font-size: 13px;
-    }
-    /* ── MÓDULO 3: botón filtrar día ── */
-    .btn-filtrar {
-      background: #1d4ed8; color: white; border: none;
-      border-radius: 6px; padding: 6px 14px; cursor: pointer; font-size: 13px;
-    }
-    .btn-filtrar:hover { background: #1e40af; }
-    .btn-limpiar-dia {
-      background: #6b7280; color: white; border: none;
-      border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 13px;
-    }
-    .btn-limpiar-dia:hover { background: #4b5563; }
+    /* ── Filtros desktop ── */
+    .filtros-superior { display:flex; gap:16px; align-items:center; justify-content:center; margin-bottom:16px; flex-wrap:wrap; }
+    .filtros-superior label { font-weight:bold; font-size:13px; }
+    .filtros-superior select, .filtros-superior input[type="number"] { padding:5px 8px; border-radius:6px; border:1px solid #999; font-size:13px; }
+    .btn-filtrar { background:#1d4ed8; color:white; border:none; border-radius:6px; padding:6px 14px; cursor:pointer; font-size:13px; }
+    .btn-filtrar:hover { background:#1e40af; }
+    .btn-limpiar-dia { background:#6b7280; color:white; border:none; border-radius:6px; padding:6px 12px; cursor:pointer; font-size:13px; }
+    .badge-dia-unico { display:inline-block; background:#dbeafe; color:#1d4ed8; border:1px solid #93c5fd; border-radius:20px; padding:3px 12px; font-size:13px; font-weight:bold; margin-bottom:8px; }
 
-    /* ── Badge día único ── */
-    .badge-dia-unico {
-      display: inline-block; background: #dbeafe; color: #1d4ed8;
-      border: 1px solid #93c5fd; border-radius: 20px;
-      padding: 3px 12px; font-size: 13px; font-weight: bold;
-      margin-bottom: 8px;
-    }
-
-    /* ── Widget presentes hoy (Módulo 7) ── */
-    .widget-hoy {
-      display: flex; gap: 10px; flex-wrap: wrap;
-      margin-bottom: 18px; align-items: stretch;
-    }
-    .widget-hoy .wcard {
-      flex: 1; min-width: 90px;
-      background: #fff; border-radius: 10px;
-      padding: 10px 8px; text-align: center;
-      box-shadow: 0 2px 6px rgba(0,0,0,.08);
-      border-top: 4px solid #e2e8f0;
-    }
-    .widget-hoy .wcard .wnum { font-size: 28px; font-weight: bold; }
-    .widget-hoy .wcard .wlbl { font-size: 11px; color: #64748b; margin-top: 2px; }
-    .wcard-tot  { border-color: #0f172a !important; }  .wcard-tot  .wnum { color: #0f172a; }
-    .wcard-pres { border-color: #16a34a !important; }  .wcard-pres .wnum { color: #16a34a; }
-    .wcard-aus  { border-color: #dc2626 !important; }  .wcard-aus  .wnum { color: #dc2626; }
-    .wcard-tard { border-color: #d97706 !important; }  .wcard-tard .wnum { color: #d97706; }
-    .wcard-just { border-color: #2563eb !important; }  .wcard-just .wnum { color: #2563eb; }
-    .widget-hoy-titulo {
-      font-size: 12px; font-weight: bold; color: #64748b;
-      text-transform: uppercase; letter-spacing: .5px;
-      margin-bottom: 6px;
-    }
+    /* ── Widget presentes ── */
+    .widget-hoy { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:18px; }
+    .widget-hoy .wcard { flex:1; min-width:90px; background:#fff; border-radius:10px; padding:10px 8px; text-align:center; box-shadow:0 2px 6px rgba(0,0,0,.08); border-top:4px solid #e2e8f0; }
+    .widget-hoy .wcard .wnum { font-size:28px; font-weight:bold; }
+    .widget-hoy .wcard .wlbl { font-size:11px; color:#64748b; margin-top:2px; }
+    .wcard-tot { border-color:#0f172a !important; } .wcard-tot .wnum { color:#0f172a; }
+    .wcard-pres { border-color:#16a34a !important; } .wcard-pres .wnum { color:#16a34a; }
+    .wcard-aus { border-color:#dc2626 !important; } .wcard-aus .wnum { color:#dc2626; }
+    .wcard-tard { border-color:#d97706 !important; } .wcard-tard .wnum { color:#d97706; }
+    .wcard-just { border-color:#2563eb !important; } .wcard-just .wnum { color:#2563eb; }
+    .widget-hoy-titulo { font-size:12px; font-weight:bold; color:#64748b; text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
 
     h3.titulo-asistencia { text-align:center; margin-bottom:10px; font-size:22px; text-transform:uppercase; }
     .subtitulo-mes { text-align:center; font-size:18px; margin-bottom:15px; }
 
+    /* ── Tabla desktop ── */
     table { width:100%; border-collapse:collapse; table-layout:fixed; font-size:13px; }
     th, td { border:1px solid #333; padding:4px; text-align:center; word-wrap:break-word; }
     th.alumnos-col { width:160px; text-align:left; background:#f3f4f6; }
     th.dia-col { background:#e5e7eb; }
-
-    /* ── MÓDULO 4: columnas de totales ── */
     th.total-col { background:#0f172a; color:#fff; font-size:12px; width:46px; }
     td.total-num { font-size:12px; font-weight:bold; }
-    td.total-p   { background:#dcfce7; color:#166534; }
-    td.total-a   { background:#fee2e2; color:#991b1b; }
-    td.total-t   { background:#fef9c3; color:#854d0e; }
-    td.total-j   { background:#dbeafe; color:#1d4ed8; }
+    td.total-p { background:#dcfce7; color:#166534; }
+    td.total-a { background:#fee2e2; color:#991b1b; }
+    td.total-t { background:#fef9c3; color:#854d0e; }
+    td.total-j { background:#dbeafe; color:#1d4ed8; }
     td.total-pct { font-weight:bold; }
-    td.total-pct.pct-ok  { color:#166534; }
+    td.total-pct.pct-ok { color:#166534; }
     td.total-pct.pct-med { color:#854d0e; }
     td.total-pct.pct-mal { color:#991b1b; background:#fee2e2; }
-
     .celda-estado { cursor:pointer; user-select:none; font-weight:bold; position:relative; }
     .celda-estado span.letra { display:block; width:100%; }
-    .estado-presente    { background-color:#c8f7c5; color:#0a7511; }
-    .estado-ausente     { background-color:#f7c5c5; color:#a00000; }
-    .estado-tarde       { background-color:#fde68a; color:#92400e; }
+    .estado-presente { background-color:#c8f7c5; color:#0a7511; }
+    .estado-ausente { background-color:#f7c5c5; color:#a00000; }
+    .estado-tarde { background-color:#fde68a; color:#92400e; }
     .estado-justificado { background-color:#dbeafe; color:#1d4ed8; }
-    .dia-no-laborable   { background:#f3f4f6; color:#9ca3af; text-decoration:line-through; text-decoration-thickness:2px; opacity:.85; }
-    .celda-estado.no-laborable { cursor:not-allowed; background:#f3f4f6; color:#9ca3af; text-decoration:line-through; opacity:.85; }
+    .dia-no-laborable { background:#f3f4f6; color:#9ca3af; text-decoration:line-through; opacity:.85; }
+    .celda-estado.no-laborable { cursor:not-allowed; background:#f3f4f6; color:#9ca3af; opacity:.85; }
 
-    /* ── MÓDULO 4: resumen al pie ── */
-    .resumen-totales {
-      margin-top: 20px;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 10px;
-      padding: 16px 20px;
-    }
-    .resumen-totales h4 { margin: 0 0 12px; font-size: 15px; color: #0f172a; }
-    .resumen-grid {
-      display: flex; gap: 12px; flex-wrap: wrap;
-    }
-    .resumen-card {
-      flex: 1; min-width: 120px;
-      border-radius: 8px; padding: 12px 16px; text-align: center;
-    }
-    .resumen-card .rc-num { font-size: 28px; font-weight: bold; }
-    .resumen-card .rc-lbl { font-size: 12px; margin-top: 2px; }
-    .rc-dias  { background:#f1f5f9; color:#334155; }
-    .rc-pres  { background:#dcfce7; color:#166534; }
-    .rc-aus   { background:#fee2e2; color:#991b1b; }
-    .rc-tard  { background:#fef9c3; color:#854d0e; }
-    .rc-just  { background:#dbeafe; color:#1d4ed8; }
-    .rc-prom  { background:#f3e8ff; color:#6b21a8; }
+    /* ── Resumen mes ── */
+    .resumen-totales { margin-top:20px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:16px 20px; }
+    .resumen-totales h4 { margin:0 0 12px; font-size:15px; color:#0f172a; }
+    .resumen-grid { display:flex; gap:12px; flex-wrap:wrap; }
+    .resumen-card { flex:1; min-width:120px; border-radius:8px; padding:12px 16px; text-align:center; }
+    .resumen-card .rc-num { font-size:28px; font-weight:bold; }
+    .resumen-card .rc-lbl { font-size:12px; margin-top:2px; }
+    .rc-dias { background:#f1f5f9; color:#334155; }
+    .rc-pres { background:#dcfce7; color:#166534; }
+    .rc-aus { background:#fee2e2; color:#991b1b; }
+    .rc-tard { background:#fef9c3; color:#854d0e; }
+    .rc-just { background:#dbeafe; color:#1d4ed8; }
+    .rc-prom { background:#f3e8ff; color:#6b21a8; }
 
     .botones { text-align:center; margin-top:15px; }
-    .botones button {
-      background:#0f172a; color:white; border:none; border-radius:8px;
-      padding:10px 20px; cursor:pointer; margin:5px; font-size:14px;
-    }
+    .botones button { background:#0f172a; color:white; border:none; border-radius:8px; padding:10px 20px; cursor:pointer; margin:5px; font-size:14px; }
     .botones button:hover { background:#1e293b; }
-
-    .alerta-ok {
-      text-align:center; background:#16a34a; color:white;
-      padding:8px; border-radius:8px; margin-bottom:10px;
-      display:<?php echo isset($mensajeOK) ? 'block' : 'none'; ?>;
-    }
-
-    @media (max-width:768px) {
-      .logo { display:none; }
-      table { font-size:11px; }
-      th.alumnos-col { width:110px; }
-      th.total-col { width:34px; }
-    }
+    .alerta-ok { text-align:center; background:#16a34a; color:white; padding:8px; border-radius:8px; margin-bottom:10px; display:<?php echo isset($mensajeOK)?'block':'none'; ?>; }
 
     /* ── Modal justificado ── */
     #modalJustificado { display:none; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,.45); align-items:center; justify-content:center; }
     #modalJustificado.activo { display:flex; }
-    .modal-box { background:#fff; border-radius:14px; padding:28px 32px; width:100%; max-width:420px; box-shadow:0 8px 32px rgba(0,0,0,.22); position:relative; }
+    .modal-box { background:#fff; border-radius:14px; padding:28px 32px; width:100%; max-width:420px; box-shadow:0 8px 32px rgba(0,0,0,.22); }
     .modal-box h3 { margin:0 0 6px; font-size:18px; color:#0f172a; }
     .modal-meta { font-size:13px; color:#555; margin-bottom:16px; }
     .modal-meta span { font-weight:bold; color:#1d4ed8; }
     .modal-box label { display:block; font-size:13px; font-weight:bold; margin-bottom:6px; color:#374151; }
     .modal-box textarea { width:100%; box-sizing:border-box; border:1px solid #94a3b8; border-radius:8px; padding:10px; font-size:14px; resize:vertical; min-height:90px; }
-    .modal-box textarea:focus { outline:none; border-color:#1d4ed8; box-shadow:0 0 0 2px #bfdbfe; }
     .modal-botones { display:flex; gap:10px; margin-top:16px; justify-content:flex-end; }
     .modal-botones button { border:none; border-radius:8px; padding:9px 20px; cursor:pointer; font-size:14px; font-weight:bold; }
     .btn-cancelar-modal { background:#e2e8f0; color:#374151; }
-    .btn-cancelar-modal:hover { background:#cbd5e1; }
     .btn-guardar-modal { background:#1d4ed8; color:#fff; }
-    .btn-guardar-modal:hover { background:#1e40af; }
     .modal-error { color:#dc2626; font-size:12px; margin-top:6px; display:none; }
+
+    /* ══════════════════════════════════════════════════════════
+       VISTA MÓVIL — solo se activa en pantallas <= 768px
+    ══════════════════════════════════════════════════════════ */
+    .vista-mobile { display:none; }
+    .vista-desktop { display:block; }
+
+    @media (max-width: 768px) {
+      .logo { display:none; }
+      .vista-desktop { display:none !important; }
+      .vista-mobile  { display:block !important; }
+
+      /* Filtros móvil compactos */
+      .filtros-mobile {
+        display: flex; gap: 8px; align-items: center;
+        flex-wrap: wrap; margin-bottom: 12px; justify-content: center;
+      }
+      .filtros-mobile select {
+        padding: 6px 8px; border-radius: 8px; border: 1px solid #cbd5e1;
+        font-size: 13px; background: #f8fafc; flex: 1; min-width: 100px;
+      }
+
+      /* Widget compacto en móvil */
+      .widget-hoy .wcard .wnum { font-size: 20px; }
+      .widget-hoy .wcard { padding: 8px 4px; min-width: 60px; }
+
+      /* ── Calendario móvil ── */
+      .cal-header {
+        display: flex; justify-content: space-between; align-items: center;
+        margin-bottom: 10px;
+      }
+      .cal-header span { font-weight: bold; font-size: 16px; color: #0f172a; }
+      .cal-nav {
+        background: #0f172a; color: #fff; border: none;
+        border-radius: 8px; padding: 6px 14px; font-size: 18px; cursor: pointer;
+      }
+      .cal-dias-semana {
+        display: grid; grid-template-columns: repeat(7, 1fr);
+        text-align: center; font-size: 11px; font-weight: bold;
+        color: #64748b; margin-bottom: 4px;
+      }
+      .cal-grid {
+        display: grid; grid-template-columns: repeat(7, 1fr);
+        gap: 4px; margin-bottom: 16px;
+      }
+      .cal-dia {
+        aspect-ratio: 1; border-radius: 10px;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        cursor: pointer; font-size: 14px; font-weight: bold;
+        border: 2px solid transparent; transition: all .15s;
+        position: relative;
+      }
+      .cal-dia.vacio    { background: #f1f5f9; color: #334155; }
+      .cal-dia.ok       { background: #dcfce7; color: #166534; border-color: #86efac; }
+      .cal-dia.mixto    { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+      .cal-dia.finde    { background: #f8fafc; color: #cbd5e1; cursor: default; }
+      .cal-dia.vacio-finde { background:#f8fafc; color:#e2e8f0; cursor:default; }
+      .cal-dia.seleccionado { border-color: #1d4ed8 !important; box-shadow: 0 0 0 3px #bfdbfe; }
+      .cal-dia.hoy-mark::after {
+        content: ''; position: absolute; bottom: 3px;
+        width: 5px; height: 5px; border-radius: 50%; background: #1d4ed8;
+      }
+      .cal-dia .punto-dia {
+        font-size: 9px; margin-top: 1px; letter-spacing: -1px;
+      }
+
+      /* ── Panel de alumnos del día ── */
+      .panel-dia {
+        background: #fff; border-radius: 14px;
+        box-shadow: 0 2px 10px rgba(0,0,0,.1);
+        overflow: hidden;
+      }
+      .panel-dia-header {
+        background: #0f172a; color: #fff;
+        padding: 12px 16px;
+        display: flex; justify-content: space-between; align-items: center;
+      }
+      .panel-dia-header h4 { margin: 0; font-size: 15px; }
+      .panel-dia-header .badge-dia {
+        background: rgba(255,255,255,.15); border-radius: 20px;
+        padding: 3px 10px; font-size: 12px;
+      }
+      .alumno-row {
+        display: flex; align-items: center;
+        padding: 10px 14px; border-bottom: 1px solid #f1f5f9;
+        gap: 10px;
+      }
+      .alumno-row:last-child { border-bottom: none; }
+      .alumno-nombre {
+        flex: 1; font-size: 14px; font-weight: 500; color: #1e293b;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      .estado-btns {
+        display: flex; gap: 6px; flex-shrink: 0;
+      }
+      .estado-btn {
+        width: 38px; height: 38px; border-radius: 10px;
+        border: 2px solid transparent; cursor: pointer;
+        font-size: 13px; font-weight: bold;
+        display: flex; align-items: center; justify-content: center;
+        transition: all .15s;
+        background: #f1f5f9; color: #64748b;
+      }
+      .estado-btn.activo-presente    { background:#dcfce7; color:#166534; border-color:#86efac; }
+      .estado-btn.activo-ausente     { background:#fee2e2; color:#991b1b; border-color:#fca5a5; }
+      .estado-btn.activo-tarde       { background:#fef9c3; color:#854d0e; border-color:#fde047; }
+      .estado-btn.activo-justificado { background:#dbeafe; color:#1d4ed8; border-color:#93c5fd; }
+
+      .btn-guardar-mobile {
+        width: 100%; padding: 14px; margin-top: 12px;
+        background: #0f172a; color: white; border: none;
+        border-radius: 12px; font-size: 16px; font-weight: bold;
+        cursor: pointer;
+      }
+      .btn-guardar-mobile:active { background: #1e293b; }
+
+      .sin-dia-seleccionado {
+        text-align: center; padding: 30px 20px;
+        color: #94a3b8; font-size: 14px;
+      }
+      .sin-dia-seleccionado .icono { font-size: 36px; margin-bottom: 8px; }
+
+      .leyenda-cal {
+        display: flex; gap: 10px; font-size: 11px;
+        margin-bottom: 10px; flex-wrap: wrap;
+      }
+      .leyenda-item { display: flex; align-items: center; gap: 4px; }
+      .leyenda-dot { width:12px; height:12px; border-radius:4px; }
+    }
   </style>
 </head>
 <body>
@@ -426,11 +417,10 @@ if ($diaFiltro > 0) {
 
 <main>
   <div class="contenedor">
-    <div class="alerta-ok"><?php echo isset($mensajeOK) ? htmlspecialchars($mensajeOK) : ''; ?></div>
+    <div class="alerta-ok" id="alertaGuardado"><?php echo isset($mensajeOK) ? htmlspecialchars($mensajeOK) : ''; ?></div>
     <div class="alerta-ok" id="alertaJustificadoOK" style="display:none;">✔ Justificado guardado correctamente.</div>
 
-    <?php if (in_array($rol, ['preceptor','directivo'])): ?>
-    <!-- ── Módulo 7: Presentes hoy ── -->
+    <?php if (in_array($rol, ['preceptor','directivo','admin','root'])): ?>
     <div class="widget-hoy-titulo" id="widgetTitulo">📅
       <?php if ($diaFiltro > 0): ?>
         <?php echo $diaFiltro . ' de ' . $meses[$mesSeleccionado] . ' ' . $anioSeleccionado; ?>
@@ -447,222 +437,249 @@ if ($diaFiltro > 0) {
     </div>
     <?php endif; ?>
 
-    <h3 class="titulo-asistencia">Lista de Asistencia</h3>
+    <!-- ══════════════════════════════════════
+         VISTA DESKTOP (igual que antes)
+    ══════════════════════════════════════ -->
+    <div class="vista-desktop">
+      <h3 class="titulo-asistencia">Lista de Asistencia</h3>
+      <form method="GET" style="margin:0 0 10px 0;" id="formFiltros">
+        <div class="filtros-superior">
+          <div>
+            <label>Curso:</label>
+            <select name="curso_id" onchange="this.form.submit()">
+              <?php foreach ($cursos as $c): ?>
+                <option value="<?php echo $c['id']; ?>" <?php if ($cursoSeleccionado==$c['id']) echo 'selected'; ?>>
+                  <?php echo htmlspecialchars($c['nombre']); ?>
+                </option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+          <div>
+            <label>Mes:</label>
+            <select name="mes" onchange="this.form.submit()">
+              <?php foreach ($meses as $num=>$nom): ?>
+                <option value="<?php echo $num; ?>" <?php if ($mesSeleccionado==$num) echo 'selected'; ?>><?php echo $nom; ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+          <div>
+            <label>Año:</label>
+            <select name="anio" onchange="this.form.submit()">
+              <?php for ($y=$yearActual-1;$y<=$yearActual+1;$y++): ?>
+                <option value="<?php echo $y; ?>" <?php if ($anioSeleccionado==$y) echo 'selected'; ?>><?php echo $y; ?></option>
+              <?php endfor; ?>
+            </select>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;border-left:2px solid #e2e8f0;padding-left:16px;">
+            <label>Ver día:</label>
+            <input type="number" name="dia" id="inputDia" min="1" max="<?php echo $totalDias; ?>"
+                   value="<?php echo $diaFiltro > 0 ? $diaFiltro : ''; ?>" placeholder="dd" style="width:60px;">
+            <button type="submit" class="btn-filtrar">Filtrar</button>
+            <?php if ($diaFiltro > 0): ?>
+              <a href="?curso_id=<?php echo $cursoSeleccionado; ?>&mes=<?php echo $mesSeleccionado; ?>&anio=<?php echo $anioSeleccionado; ?>">
+                <button type="button" class="btn-limpiar-dia">✕ Ver mes completo</button>
+              </a>
+            <?php endif; ?>
+          </div>
+        </div>
+      </form>
+      <div class="subtitulo-mes">
+        <?php if ($diaFiltro > 0): ?>
+          <span class="badge-dia-unico">📅 Mostrando solo: <?php echo $diaFiltro . ' de ' . $meses[$mesSeleccionado] . ' ' . $anioSeleccionado; ?></span>
+        <?php else: ?>
+          MES: <?php echo $meses[$mesSeleccionado]; ?> <?php echo $anioSeleccionado; ?>
+        <?php endif; ?>
+      </div>
+      <form method="POST" id="formAsistenciaDesktop">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">
+        <input type="hidden" name="curso_id" value="<?php echo $cursoSeleccionado; ?>">
+        <input type="hidden" name="mes"      value="<?php echo $mesSeleccionado; ?>">
+        <input type="hidden" name="anio"     value="<?php echo $anioSeleccionado; ?>">
+        <?php if ($diaFiltro > 0): ?><input type="hidden" name="dia" value="<?php echo $diaFiltro; ?>"><?php endif; ?>
+        <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th class="alumnos-col">Alumnos</th>
+              <?php foreach ($diasAMostrar as $d):
+                $fd=$fechaDia=sprintf('%04d-%02d-%02d',$anioSeleccionado,$mesSeleccionado,$d);
+                $esFDS=in_array((int)date('w',strtotime($fd)),[0,6]);
+              ?>
+                <th class="dia-col<?php echo $esFDS?' dia-no-laborable':''; ?>"><?php echo $d; ?></th>
+              <?php endforeach; ?>
+              <?php if ($diaFiltro===0): ?>
+              <th class="total-col">P</th><th class="total-col">A</th><th class="total-col">T</th><th class="total-col">J</th><th class="total-col">%</th>
+              <?php endif; ?>
+            </tr>
+          </thead>
+          <tbody>
+          <?php if (!$alumnos): ?>
+            <tr><td colspan="<?php echo count($diasAMostrar)+($diaFiltro===0?6:1); ?>">No hay alumnos asignados a este curso.</td></tr>
+          <?php else: ?>
+            <?php foreach ($alumnos as $al):
+                  $dniAl=(int)$al['dni']; ?>
+              <tr>
+                <td style="text-align:left;"><?php echo htmlspecialchars($al['nombre']); ?></td>
+                <?php foreach ($diasAMostrar as $d):
+                      $fd=sprintf('%04d-%02d-%02d',$anioSeleccionado,$mesSeleccionado,$d);
+                      $esFDS=in_array((int)date('w',strtotime($fd)),[0,6]);
+                      $valor=$asistencias[$dniAl][$d]??'';
+                      $clase=$letra='';
+                      if ($valor==='presente'){$clase='estado-presente';$letra='P';}
+                      elseif($valor==='ausente'){$clase='estado-ausente';$letra='A';}
+                      elseif($valor==='tarde'){$clase='estado-tarde';$letra='T';}
+                      elseif($valor==='justificado'){$clase='estado-justificado';$letra='J';}
+                      if ($esFDS) $clase.=' no-laborable';
+                ?>
+                  <td class="celda-estado <?php echo trim($clase); ?>"
+                      data-dni="<?php echo $dniAl; ?>" data-dia="<?php echo $d; ?>"
+                      data-valor="<?php echo $valor; ?>" data-no-laborable="<?php echo $esFDS?'1':'0'; ?>">
+                    <span class="letra"><?php echo $letra; ?></span>
+                    <input type="hidden" name="estado[<?php echo $dniAl; ?>][<?php echo $d; ?>]" value="<?php echo $valor; ?>">
+                  </td>
+                <?php endforeach; ?>
+                <?php if ($diaFiltro===0):
+                      $tot=$totalesPorAlumno[$dniAl]??['presentes'=>0,'ausentes'=>0,'tardanzas'=>0,'justificados'=>0,'porcentaje'=>0];
+                      $pct=$tot['porcentaje'];
+                      $pc=$pct>=85?'pct-ok':($pct>=70?'pct-med':'pct-mal');
+                ?>
+                <td class="total-num total-p"><?php echo $tot['presentes'];?></td>
+                <td class="total-num total-a"><?php echo $tot['ausentes'];?></td>
+                <td class="total-num total-t"><?php echo $tot['tardanzas'];?></td>
+                <td class="total-num total-j"><?php echo $tot['justificados'];?></td>
+                <td class="total-num total-pct <?php echo $pc;?>"><?php echo $pct;?>%</td>
+                <?php endif; ?>
+              </tr>
+            <?php endforeach; ?>
+          <?php endif; ?>
+          </tbody>
+        </table>
+        </div>
+        <div class="botones"><button type="submit" name="guardar">💾 Guardar</button></div>
+      </form>
 
-    <!-- ════════════════════════════════════════════════════════════
-         FILTROS: Curso / Mes / Año / DÍA (Módulo 3)
-    ════════════════════════════════════════════════════════════ -->
-    <form method="GET" style="margin:0 0 10px 0;" id="formFiltros">
-      <div class="filtros-superior">
-        <div>
-          <label>Curso:</label>
+      <?php if ($alumnos && $diaFiltro===0):
+        $totP=$totA=$totT=$totJ=0;
+        foreach($totalesPorAlumno as $t){$totP+=$t['presentes'];$totA+=$t['ausentes'];$totT+=$t['tardanzas'];$totJ+=$t['justificados'];}
+        $totalReg=$totP+$totA+$totT+$totJ;
+        $promAsistencia=$totalReg>0?round(($totP+$totJ)/$totalReg*100,1):0;
+      ?>
+      <div class="resumen-totales">
+        <h4>📊 Resumen del mes — <?php echo $meses[$mesSeleccionado].' '.$anioSeleccionado; ?></h4>
+        <div class="resumen-grid">
+          <div class="resumen-card rc-dias"><div class="rc-num"><?php echo $diasLaborablesDelMes;?></div><div class="rc-lbl">Días hábiles</div></div>
+          <div class="resumen-card rc-pres"><div class="rc-num"><?php echo $totP;?></div><div class="rc-lbl">Presentes</div></div>
+          <div class="resumen-card rc-aus"><div class="rc-num"><?php echo $totA;?></div><div class="rc-lbl">Ausentes</div></div>
+          <div class="resumen-card rc-tard"><div class="rc-num"><?php echo $totT;?></div><div class="rc-lbl">Tardanzas</div></div>
+          <div class="resumen-card rc-just"><div class="rc-num"><?php echo $totJ;?></div><div class="rc-lbl">Justificados</div></div>
+          <div class="resumen-card rc-prom"><div class="rc-num"><?php echo $promAsistencia;?>%</div><div class="rc-lbl">Prom. asistencia</div></div>
+        </div>
+        <p style="font-size:12px;color:#64748b;margin:10px 0 0;">
+          <strong>P</strong> Presentes · <strong>A</strong> Ausentes · <strong>T</strong> Tardanzas · <strong>J</strong> Justificados · <strong>%</strong> % asistencia. Rojo = menos del 70%.
+        </p>
+      </div>
+      <?php endif; ?>
+    </div><!-- /vista-desktop -->
+
+    <!-- ══════════════════════════════════════
+         VISTA MÓVIL — Calendario + panel
+    ══════════════════════════════════════ -->
+    <div class="vista-mobile">
+
+      <!-- Filtros compactos móvil -->
+      <form method="GET" id="formFiltrosMobile">
+        <div class="filtros-mobile">
           <select name="curso_id" onchange="this.form.submit()">
             <?php foreach ($cursos as $c): ?>
-              <option value="<?php echo $c['id']; ?>" <?php if ($cursoSeleccionado == $c['id']) echo 'selected'; ?>>
+              <option value="<?php echo $c['id']; ?>" <?php if ($cursoSeleccionado==$c['id']) echo 'selected'; ?>>
                 <?php echo htmlspecialchars($c['nombre']); ?>
               </option>
             <?php endforeach; ?>
           </select>
-        </div>
-        <div>
-          <label>Mes:</label>
           <select name="mes" onchange="this.form.submit()">
-            <?php foreach ($meses as $num => $nom): ?>
-              <option value="<?php echo $num; ?>" <?php if ($mesSeleccionado == $num) echo 'selected'; ?>>
-                <?php echo $nom; ?>
-              </option>
+            <?php foreach ($meses as $num=>$nom): ?>
+              <option value="<?php echo $num; ?>" <?php if ($mesSeleccionado==$num) echo 'selected'; ?>><?php echo $nom; ?></option>
             <?php endforeach; ?>
           </select>
-        </div>
-        <div>
-          <label>Año:</label>
           <select name="anio" onchange="this.form.submit()">
-            <?php for ($y = $yearActual-1; $y <= $yearActual+1; $y++): ?>
-              <option value="<?php echo $y; ?>" <?php if ($anioSeleccionado == $y) echo 'selected'; ?>>
-                <?php echo $y; ?>
-              </option>
+            <?php for ($y=$yearActual-1;$y<=$yearActual+1;$y++): ?>
+              <option value="<?php echo $y; ?>" <?php if ($anioSeleccionado==$y) echo 'selected'; ?>><?php echo $y; ?></option>
             <?php endfor; ?>
           </select>
         </div>
+      </form>
 
-        <!-- ── Módulo 3: Filtro por día ── -->
-        <div style="display:flex;align-items:center;gap:6px;border-left:2px solid #e2e8f0;padding-left:16px;">
-          <label>Ver día:</label>
-          <input type="number" name="dia" id="inputDia" min="1" max="<?php echo $totalDias; ?>"
-                 value="<?php echo $diaFiltro > 0 ? $diaFiltro : ''; ?>"
-                 placeholder="dd" style="width:60px;">
-          <button type="submit" class="btn-filtrar">Filtrar</button>
-          <?php if ($diaFiltro > 0): ?>
-            <a href="?curso_id=<?php echo $cursoSeleccionado; ?>&mes=<?php echo $mesSeleccionado; ?>&anio=<?php echo $anioSeleccionado; ?>">
-              <button type="button" class="btn-limpiar-dia">✕ Ver mes completo</button>
-            </a>
-          <?php endif; ?>
-        </div>
+      <!-- Leyenda colores -->
+      <div class="leyenda-cal">
+        <div class="leyenda-item"><div class="leyenda-dot" style="background:#dcfce7;border:1px solid #86efac;"></div> Todos presentes</div>
+        <div class="leyenda-item"><div class="leyenda-dot" style="background:#fee2e2;border:1px solid #fca5a5;"></div> Con ausentes</div>
+        <div class="leyenda-item"><div class="leyenda-dot" style="background:#f1f5f9;border:1px solid #e2e8f0;"></div> Sin cargar</div>
       </div>
-    </form>
 
-    <div class="subtitulo-mes">
-      <?php if ($diaFiltro > 0): ?>
-        <span class="badge-dia-unico">
-          📅 Mostrando solo: <?php echo $diaFiltro . ' de ' . $meses[$mesSeleccionado] . ' ' . $anioSeleccionado; ?>
-        </span>
-      <?php else: ?>
-        MES: <?php echo $meses[$mesSeleccionado]; ?> <?php echo $anioSeleccionado; ?>
-      <?php endif; ?>
-    </div>
-
-    <!-- ════════════════════════════════════════════════════════════
-         TABLA DE ASISTENCIA (con columnas de totales - Módulo 4)
-    ════════════════════════════════════════════════════════════ -->
-    <form method="POST">
-      <input type="hidden" name="curso_id" value="<?php echo $cursoSeleccionado; ?>">
-      <input type="hidden" name="mes"      value="<?php echo $mesSeleccionado; ?>">
-      <input type="hidden" name="anio"     value="<?php echo $anioSeleccionado; ?>">
-      <?php if ($diaFiltro > 0): ?>
-        <input type="hidden" name="dia" value="<?php echo $diaFiltro; ?>">
-      <?php endif; ?>
-
-      <div style="overflow-x:auto;">
-      <table>
-        <thead>
-          <tr>
-            <th class="alumnos-col">Alumnos</th>
-            <?php foreach ($diasAMostrar as $d):
-              $fechaDia      = sprintf('%04d-%02d-%02d', $anioSeleccionado, $mesSeleccionado, $d);
-              $esFinDeSemana = in_array((int)date('w', strtotime($fechaDia)), [0, 6]);
-            ?>
-              <th class="dia-col<?php echo $esFinDeSemana ? ' dia-no-laborable' : ''; ?>">
-                <?php echo $d; ?>
-              </th>
-            <?php endforeach; ?>
-            <!-- Módulo 4: encabezados de totales -->
-            <?php if ($diaFiltro === 0): ?>
-            <th class="total-col">P</th>
-            <th class="total-col">A</th>
-            <th class="total-col">T</th>
-            <th class="total-col">J</th>
-            <th class="total-col">%</th>
+      <!-- Calendario -->
+      <div class="cal-header">
+        <span><?php echo $meses[$mesSeleccionado] . ' ' . $anioSeleccionado; ?></span>
+      </div>
+      <div class="cal-dias-semana">
+        <div>Dom</div><div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div>
+      </div>
+      <div class="cal-grid" id="calGrid">
+        <?php
+        // Primer día de la semana del mes
+        $primerDia = (int)date('w', strtotime(sprintf('%04d-%02d-01', $anioSeleccionado, $mesSeleccionado)));
+        // Celdas vacías antes del primer día
+        for ($i = 0; $i < $primerDia; $i++): ?>
+          <div class="cal-dia vacio-finde"></div>
+        <?php endfor;
+        // Días del mes
+        $hoy = (int)date('j'); $mesHoy = (int)date('n'); $anioHoy = (int)date('Y');
+        for ($d = 1; $d <= $totalDias; $d++):
+          $color = $coloresDias[$d] ?? 'vacio';
+          $esHoy = ($d===$hoy && $mesSeleccionado===$mesHoy && $anioSeleccionado===$anioHoy);
+          $clases = 'cal-dia ' . $color . ($esHoy ? ' hoy-mark' : '');
+          // Conteo rápido para el puntito
+          $pMob = $aMob = 0;
+          foreach ($alumnos as $al) { $e=$asistencias[(int)$al['dni']][$d]??''; if($e==='presente'||$e==='justificado') $pMob++; if($e==='ausente') $aMob++; }
+        ?>
+          <div class="<?php echo $clases; ?>" data-dia="<?php echo $d; ?>" onclick="seleccionarDia(<?php echo $d; ?>)">
+            <?php echo $d; ?>
+            <?php if ($color !== 'finde' && $color !== 'vacio-finde' && ($pMob > 0 || $aMob > 0)): ?>
+              <div class="punto-dia"><?php echo $pMob>0?"✓":''?><?php echo $aMob>0?"✗":''?></div>
             <?php endif; ?>
-          </tr>
-        </thead>
-        <tbody>
-        <?php if (!$alumnos): ?>
-          <tr><td colspan="<?php echo count($diasAMostrar) + ($diaFiltro === 0 ? 6 : 1); ?>">No hay alumnos asignados a este curso.</td></tr>
-        <?php else: ?>
-          <?php foreach ($alumnos as $al):
-                $dniAl = (int)$al['dni']; ?>
-            <tr>
-              <td style="text-align:left;"><?php echo htmlspecialchars($al['nombre']); ?></td>
-              <?php foreach ($diasAMostrar as $d):
-                    $fechaDia      = sprintf('%04d-%02d-%02d', $anioSeleccionado, $mesSeleccionado, $d);
-                    $esFinDeSemana = in_array((int)date('w', strtotime($fechaDia)), [0, 6]);
-                    $valor = $asistencias[$dniAl][$d] ?? '';
-                    $clase = $letra = '';
-                    if ($valor === 'presente')    { $clase = 'estado-presente';    $letra = 'P'; }
-                    elseif ($valor === 'ausente') { $clase = 'estado-ausente';     $letra = 'A'; }
-                    elseif ($valor === 'tarde')   { $clase = 'estado-tarde';       $letra = 'T'; }
-                    elseif ($valor === 'justificado') { $clase = 'estado-justificado'; $letra = 'J'; }
-                    if ($esFinDeSemana) $clase .= ' no-laborable';
-              ?>
-                <td class="celda-estado <?php echo trim($clase); ?>"
-                    data-dni="<?php echo $dniAl; ?>"
-                    data-dia="<?php echo $d; ?>"
-                    data-valor="<?php echo $valor; ?>"
-                    data-no-laborable="<?php echo $esFinDeSemana ? '1' : '0'; ?>">
-                  <span class="letra"><?php echo $letra; ?></span>
-                  <input type="hidden" name="estado[<?php echo $dniAl; ?>][<?php echo $d; ?>]" value="<?php echo $valor; ?>">
-                </td>
-              <?php endforeach; ?>
-
-              <!-- Módulo 4: totales por alumno -->
-              <?php if ($diaFiltro === 0):
-                    $tot = $totalesPorAlumno[$dniAl] ?? ['presentes'=>0,'ausentes'=>0,'tardanzas'=>0,'justificados'=>0,'porcentaje'=>0];
-                    $pct = $tot['porcentaje'];
-                    $pctClass = $pct >= 85 ? 'pct-ok' : ($pct >= 70 ? 'pct-med' : 'pct-mal');
-              ?>
-              <td class="total-num total-p"><?php echo $tot['presentes'];    ?></td>
-              <td class="total-num total-a"><?php echo $tot['ausentes'];     ?></td>
-              <td class="total-num total-t"><?php echo $tot['tardanzas'];    ?></td>
-              <td class="total-num total-j"><?php echo $tot['justificados']; ?></td>
-              <td class="total-num total-pct <?php echo $pctClass; ?>"><?php echo $pct; ?>%</td>
-              <?php endif; ?>
-            </tr>
-          <?php endforeach; ?>
-        <?php endif; ?>
-        </tbody>
-      </table>
+          </div>
+        <?php endfor; ?>
       </div>
 
-      <div class="botones">
-        <button type="submit" name="guardar">💾 Guardar</button>
+      <!-- Panel de alumnos del día seleccionado -->
+      <div id="panelDia" class="panel-dia">
+        <div class="sin-dia-seleccionado">
+          <div class="icono">📅</div>
+          Tocá un día del calendario para cargar la asistencia
+        </div>
       </div>
-    </form>
 
-    <!-- ════════════════════════════════════════════════════════════
-         MÓDULO 4: Resumen general del mes
-    ════════════════════════════════════════════════════════════ -->
-    <?php if ($alumnos && $diaFiltro === 0):
-      $totP = $totA = $totT = $totJ = 0;
-      foreach ($totalesPorAlumno as $t) {
-          $totP += $t['presentes']; $totA += $t['ausentes'];
-          $totT += $t['tardanzas']; $totJ += $t['justificados'];
-      }
-      $totalReg      = $totP + $totA + $totT + $totJ;
-      $promAsistencia = $totalReg > 0 ? round(($totP + $totJ) / $totalReg * 100, 1) : 0;
-    ?>
-    <div class="resumen-totales">
-      <h4>📊 Resumen del mes — <?php echo $meses[$mesSeleccionado] . ' ' . $anioSeleccionado; ?></h4>
-      <div class="resumen-grid">
-        <div class="resumen-card rc-dias">
-          <div class="rc-num"><?php echo $diasLaborablesDelMes; ?></div>
-          <div class="rc-lbl">Días hábiles</div>
-        </div>
-        <div class="resumen-card rc-pres">
-          <div class="rc-num"><?php echo $totP; ?></div>
-          <div class="rc-lbl">Presentes</div>
-        </div>
-        <div class="resumen-card rc-aus">
-          <div class="rc-num"><?php echo $totA; ?></div>
-          <div class="rc-lbl">Ausentes</div>
-        </div>
-        <div class="resumen-card rc-tard">
-          <div class="rc-num"><?php echo $totT; ?></div>
-          <div class="rc-lbl">Tardanzas</div>
-        </div>
-        <div class="resumen-card rc-just">
-          <div class="rc-num"><?php echo $totJ; ?></div>
-          <div class="rc-lbl">Justificados</div>
-        </div>
-        <div class="resumen-card rc-prom">
-          <div class="rc-num"><?php echo $promAsistencia; ?>%</div>
-          <div class="rc-lbl">Prom. asistencia</div>
-        </div>
-      </div>
-      <p style="font-size:12px;color:#64748b;margin:10px 0 0;">
-        Leyenda columnas: <strong>P</strong> Presentes · <strong>A</strong> Ausentes ·
-        <strong>T</strong> Tardanzas · <strong>J</strong> Justificados · <strong>%</strong> % asistencia.
-        Se resalta en rojo el alumno con menos del 70&nbsp;% de asistencia.
-      </p>
-    </div>
-    <?php endif; ?>
+      <button class="btn-guardar-mobile" id="btnGuardarMobile" style="display:none;" onclick="guardarMobile()">
+        💾 Guardar asistencia del día
+      </button>
+    </div><!-- /vista-mobile -->
 
   </div><!-- /contenedor -->
 </main>
 
-<!-- Modal justificado (idéntico al original) -->
-<div id="modalJustificado" role="dialog" aria-modal="true" aria-labelledby="modalTitulo">
+<!-- Modal justificado (compartido desktop/mobile) -->
+<div id="modalJustificado" role="dialog" aria-modal="true">
   <div class="modal-box">
-    <h3 id="modalTitulo">📋 Registrar Justificado</h3>
+    <h3>📋 Registrar Justificado</h3>
     <p class="modal-meta">
       Alumno: <span id="modalNombreAlumno">—</span><br>
-      Fecha:  <span id="modalFechaTexto">—</span>
+      Fecha: <span id="modalFechaTexto">—</span>
     </p>
-    <label for="modalMotivo">Motivo del justificado:</label>
+    <label for="modalMotivo">Motivo:</label>
     <textarea id="modalMotivo" placeholder="Ej: Certificado médico, trámite familiar…" maxlength="500"></textarea>
     <div class="modal-error" id="modalError">Por favor ingresá el motivo antes de guardar.</div>
     <div class="modal-botones">
       <button class="btn-cancelar-modal" id="btnCancelarModal">Cancelar</button>
-      <button class="btn-guardar-modal"  id="btnGuardarModal">💾 Guardar</button>
+      <button class="btn-guardar-modal" id="btnGuardarModal">💾 Guardar</button>
     </div>
   </div>
 </div>
@@ -671,17 +688,51 @@ if ($diaFiltro > 0) {
 <script>
 window.APP_USER_NAME = "<?= htmlspecialchars($_SESSION['usuario'] ?? 'Usuario'); ?>";
 
+// ── Datos PHP → JS ────────────────────────────────────────────────
 const alumnosData = {
   <?php foreach ($alumnos as $al): ?>
   <?php echo (int)$al['dni']; ?>: <?php echo json_encode(htmlspecialchars($al['nombre'])); ?>,
   <?php endforeach; ?>
 };
+const alumnosLista = <?php echo json_encode(array_map(fn($a)=>['dni'=>(int)$a['dni'],'nombre'=>$a['nombre']],$alumnos)); ?>;
+const asistenciasBase = <?php
+  $out = [];
+  foreach ($alumnos as $al) {
+    $dni = (int)$al['dni'];
+    $out[$dni] = $asistencias[$dni] ?? [];
+  }
+  echo json_encode($out);
+?>;
+let motivosPrevios = <?php echo json_encode($motivosPrevios ?? []); ?>;
 const mesActual  = <?php echo $mesSeleccionado; ?>;
 const anioActual = <?php echo $anioSeleccionado; ?>;
-let celdaPendiente = null;
-let motivosPrevios = <?php echo json_encode($motivosPrevios ?? []); ?>;
+const cursoId    = <?php echo $cursoSeleccionado; ?>;
 
-function abrirModal(celda) {
+// Estado temporal móvil: { dni: { dia: estado } }
+let estadosMobile = {};
+let diaSeleccionado = null;
+let celdaPendiente = null;
+
+// Inicializar estadosMobile con los datos de BD
+alumnosLista.forEach(al => {
+  estadosMobile[al.dni] = {};
+  const base = asistenciasBase[al.dni] ?? {};
+  Object.entries(base).forEach(([dia, est]) => {
+    estadosMobile[al.dni][parseInt(dia)] = est;
+  });
+});
+
+// ── Funciones desktop (igual que antes) ───────────────────────────
+function aplicarEstado(celda, valor) {
+  const span = celda.querySelector('span.letra');
+  celda.classList.remove('estado-presente','estado-ausente','estado-tarde','estado-justificado');
+  const mapa = { presente:['estado-presente','P'], ausente:['estado-ausente','A'], tarde:['estado-tarde','T'], justificado:['estado-justificado','J'], '': [null,''] };
+  const [cls, letra] = mapa[valor] ?? [null,''];
+  if (cls) celda.classList.add(cls);
+  span.textContent = letra;
+}
+
+function abrirModal(celda, esMobile = false) {
   const dni = celda.dataset.dni, dia = celda.dataset.dia;
   const key = `${dni}_${dia}`;
   const fecha = `${anioActual}-${String(mesActual).padStart(2,'0')}-${String(dia).padStart(2,'0')}`;
@@ -689,49 +740,42 @@ function abrirModal(celda) {
   document.getElementById('modalFechaTexto').textContent   = fecha;
   document.getElementById('modalMotivo').value             = motivosPrevios[key] ?? '';
   document.getElementById('modalError').style.display      = 'none';
-  celdaPendiente = celda;
+  celdaPendiente = { celda, esMobile };
   document.getElementById('modalJustificado').classList.add('activo');
-  document.getElementById('modalMotivo').focus();
+  setTimeout(() => document.getElementById('modalMotivo').focus(), 100);
 }
 
 function cerrarModal(revertir = true) {
   document.getElementById('modalJustificado').classList.remove('activo');
   if (revertir && celdaPendiente) {
-    aplicarEstado(celdaPendiente, '');
-    celdaPendiente.dataset.valor = '';
-    celdaPendiente.querySelector('input[type="hidden"]').value = '';
+    if (celdaPendiente.esMobile) {
+      // Revertir en mobile
+      const celda = celdaPendiente.celda;
+      const dni = parseInt(celda.dataset.dni), dia = parseInt(celda.dataset.dia);
+      estadosMobile[dni][dia] = asistenciasBase[dni]?.[dia] ?? '';
+      actualizarBtnsMobile(dni, dia);
+    } else {
+      aplicarEstado(celdaPendiente.celda, '');
+      celdaPendiente.celda.dataset.valor = '';
+      celdaPendiente.celda.querySelector('input[type="hidden"]').value = '';
+    }
   }
   celdaPendiente = null;
-}
-
-function aplicarEstado(celda, valor) {
-  const span = celda.querySelector('span.letra');
-  celda.classList.remove('estado-presente','estado-ausente','estado-tarde','estado-justificado');
-  const mapa = {
-    presente:    ['estado-presente',    'P'],
-    ausente:     ['estado-ausente',     'A'],
-    tarde:       ['estado-tarde',       'T'],
-    justificado: ['estado-justificado', 'J'],
-    '':          [null, '']
-  };
-  const [cls, letra] = mapa[valor] ?? [null, ''];
-  if (cls) celda.classList.add(cls);
-  span.textContent = letra;
 }
 
 document.querySelectorAll('.celda-estado').forEach(celda => {
   celda.addEventListener('click', () => {
     if (celda.dataset.noLaborable === '1') return;
     let valor = celda.dataset.valor || '';
-    if (valor === '')             valor = 'presente';
-    else if (valor === 'presente')   valor = 'ausente';
-    else if (valor === 'ausente')    valor = 'tarde';
-    else if (valor === 'tarde')      valor = 'justificado';
-    else                             valor = '';
+    if (valor==='') valor='presente';
+    else if (valor==='presente') valor='ausente';
+    else if (valor==='ausente') valor='tarde';
+    else if (valor==='tarde') valor='justificado';
+    else valor='';
     celda.dataset.valor = valor;
     celda.querySelector('input[type="hidden"]').value = valor;
     aplicarEstado(celda, valor);
-    if (valor === 'justificado') abrirModal(celda);
+    if (valor === 'justificado') abrirModal(celda, false);
   });
 });
 
@@ -742,15 +786,17 @@ document.getElementById('modalJustificado').addEventListener('click', e => {
 
 document.getElementById('btnGuardarModal').addEventListener('click', async () => {
   const motivo = document.getElementById('modalMotivo').value.trim();
-  if (!motivo) { document.getElementById('modalError').style.display = 'block'; return; }
+  if (!motivo) { document.getElementById('modalError').style.display='block'; return; }
   document.getElementById('modalError').style.display = 'none';
-  const celda = celdaPendiente, dni = celda.dataset.dni, dia = celda.dataset.dia;
+  const { celda, esMobile } = celdaPendiente;
+  const dni = celda.dataset.dni, dia = celda.dataset.dia;
   const fecha = `${anioActual}-${String(mesActual).padStart(2,'0')}-${String(dia).padStart(2,'0')}`;
-  const key   = `${dni}_${dia}`;
-  const btn   = document.getElementById('btnGuardarModal');
+  const key = `${dni}_${dia}`;
+  const btn = document.getElementById('btnGuardarModal');
   btn.disabled = true; btn.textContent = 'Guardando…';
   try {
     const body = new URLSearchParams({ alumno_dni: dni, fecha, motivo });
+    body.append('csrf_token', <?= json_encode(csrfToken()) ?>);
     const resp = await fetch('api_guardar_justificado.php', { method: 'POST', body });
     const data = await resp.json();
     if (data.ok) {
@@ -758,16 +804,159 @@ document.getElementById('btnGuardarModal').addEventListener('click', async () =>
       cerrarModal(false);
       const alerta = document.getElementById('alertaJustificadoOK');
       alerta.style.display = 'block';
-      alerta.scrollIntoView({ behavior:'smooth', block:'center' });
-      setTimeout(() => { alerta.style.display = 'none'; }, 3500);
-    } else { alert('Error al guardar: ' + (data.error ?? 'Desconocido')); }
+      setTimeout(() => { alerta.style.display='none'; }, 3000);
+    } else { alert('Error: ' + (data.error ?? 'Desconocido')); }
   } catch { alert('Error de red.'); }
-  finally { btn.disabled = false; btn.textContent = '💾 Guardar'; }
+  finally { btn.disabled=false; btn.textContent='💾 Guardar'; }
 });
 
-// ── Módulo 7: widget de presentes hoy ─────────────────────────────
+// ── VISTA MÓVIL: Calendario ───────────────────────────────────────
+const estadosOrden = ['', 'presente', 'ausente', 'tarde', 'justificado'];
+
+function actualizarBtnsMobile(dni, dia) {
+  const est = estadosMobile[dni]?.[dia] ?? '';
+  const fila = document.querySelector(`.alumno-row[data-dni="${dni}"]`);
+  if (!fila) return;
+  fila.querySelectorAll('.estado-btn').forEach(btn => {
+    btn.classList.remove('activo-presente','activo-ausente','activo-tarde','activo-justificado');
+    const tipo = btn.dataset.estado;
+    if (tipo === est) btn.classList.add('activo-' + tipo);
+  });
+}
+
+function seleccionarDia(dia) {
+  diaSeleccionado = dia;
+
+  // Marcar día en calendario
+  document.querySelectorAll('.cal-dia').forEach(el => el.classList.remove('seleccionado'));
+  const celdaCal = document.querySelector(`.cal-dia[data-dia="${dia}"]`);
+  if (celdaCal) celdaCal.classList.add('seleccionado');
+
+  const fecha = `${anioActual}-${String(mesActual).padStart(2,'0')}-${String(dia).padStart(2,'0')}`;
+  const dow = new Date(anioActual, mesActual - 1, dia).getDay();
+  const nombresDia = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  const nombresMes = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+  const panel = document.getElementById('panelDia');
+
+  if (dow === 0 || dow === 6) {
+    panel.innerHTML = `
+      <div class="panel-dia-header">
+        <h4>${nombresDia[dow]} ${dia}</h4>
+        <span class="badge-dia">${nombresMes[mesActual]}</span>
+      </div>
+      <div class="sin-dia-seleccionado"><div class="icono">🏖️</div>Fin de semana — sin clases</div>`;
+    document.getElementById('btnGuardarMobile').style.display = 'none';
+    return;
+  }
+
+  // Construir filas de alumnos
+  let filas = '';
+  alumnosLista.forEach(al => {
+    const dni = al.dni;
+    const est = estadosMobile[dni]?.[dia] ?? '';
+    const estados = [
+      { val: 'presente', label: 'P', title: 'Presente' },
+      { val: 'ausente',  label: 'A', title: 'Ausente' },
+      { val: 'tarde',    label: 'T', title: 'Tarde' },
+      { val: 'justificado', label: 'J', title: 'Justificado' },
+    ];
+    let btns = estados.map(e =>
+      `<button type="button" class="estado-btn${est===e.val?' activo-'+e.val:''}"
+               data-estado="${e.val}" data-dni="${dni}" data-dia="${dia}"
+               title="${e.title}" onclick="toggleEstadoMobile(this)">${e.label}</button>`
+    ).join('');
+    filas += `
+      <div class="alumno-row" data-dni="${dni}">
+        <div class="alumno-nombre">${al.nombre}</div>
+        <div class="estado-btns">${btns}</div>
+      </div>`;
+  });
+
+  panel.innerHTML = `
+    <div class="panel-dia-header">
+      <h4>${nombresDia[dow]} ${dia}</h4>
+      <span class="badge-dia">${nombresMes[mesActual]} ${anioActual}</span>
+    </div>
+    ${filas || '<div class="sin-dia-seleccionado">No hay alumnos en este curso.</div>'}`;
+
+  document.getElementById('btnGuardarMobile').style.display = alumnosLista.length ? 'block' : 'none';
+}
+
+function toggleEstadoMobile(btn) {
+  const dni = parseInt(btn.dataset.dni);
+  const dia = parseInt(btn.dataset.dia);
+  const nuevoEstado = btn.dataset.estado;
+  const estadoActual = estadosMobile[dni]?.[dia] ?? '';
+
+  // Toggle: si ya estaba activo, lo apaga
+  const estado = estadoActual === nuevoEstado ? '' : nuevoEstado;
+  if (!estadosMobile[dni]) estadosMobile[dni] = {};
+  estadosMobile[dni][dia] = estado;
+  actualizarBtnsMobile(dni, dia);
+
+  // Si eligió justificado, abrir modal
+  if (estado === 'justificado') {
+    const celda = { dataset: { dni: String(dni), dia: String(dia) } };
+    abrirModal(celda, true);
+  }
+}
+
+async function guardarMobile() {
+  if (!diaSeleccionado) return;
+  const btn = document.getElementById('btnGuardarMobile');
+  btn.disabled = true; btn.textContent = '⏳ Guardando…';
+
+  const formData = new FormData();
+  formData.append('guardar', '1');
+  formData.append('csrf_token', <?= json_encode(csrfToken()) ?>);
+  formData.append('curso_id', cursoId);
+  formData.append('mes', mesActual);
+  formData.append('anio', anioActual);
+  formData.append('dia', diaSeleccionado);
+
+  alumnosLista.forEach(al => {
+    const est = estadosMobile[al.dni]?.[diaSeleccionado] ?? '';
+    formData.append(`estado[${al.dni}][${diaSeleccionado}]`, est);
+  });
+
+  try {
+    const resp = await fetch('asistencia.php', { method: 'POST', body: formData });
+    const text = await resp.text();
+    // Actualizar colores del calendario
+    alumnosLista.forEach(al => {
+      if (!asistenciasBase[al.dni]) asistenciasBase[al.dni] = {};
+      asistenciasBase[al.dni][diaSeleccionado] = estadosMobile[al.dni]?.[diaSeleccionado] ?? '';
+    });
+    actualizarColorCal(diaSeleccionado);
+    const alerta = document.getElementById('alertaGuardado');
+    alerta.textContent = '✔ Asistencia guardada correctamente.';
+    alerta.style.display = 'block';
+    alerta.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => { alerta.style.display='none'; }, 3000);
+  } catch { alert('Error de red al guardar.'); }
+  finally { btn.disabled=false; btn.textContent='💾 Guardar asistencia del día'; }
+}
+
+function actualizarColorCal(dia) {
+  const celda = document.querySelector(`.cal-dia[data-dia="${dia}"]`);
+  if (!celda) return;
+  const fecha = `${anioActual}-${String(mesActual).padStart(2,'0')}-${String(dia).padStart(2,'0')}`;
+  const dow = new Date(anioActual, mesActual - 1, dia).getDay();
+  if (dow===0||dow===6) return;
+  let hayDatos=false, hayAusentes=false;
+  alumnosLista.forEach(al => {
+    const est = estadosMobile[al.dni]?.[dia] ?? '';
+    if (est!=='') hayDatos=true;
+    if (est==='ausente') hayAusentes=true;
+  });
+  celda.classList.remove('vacio','ok','mixto');
+  celda.classList.add(hayDatos ? (hayAusentes ? 'mixto' : 'ok') : 'vacio');
+}
+
+// ── Widget de presentes ───────────────────────────────────────────
 function actualizarWidget(data) {
-  if (!data || data.error) { console.warn('Widget presentes hoy:', data?.error); return; }
+  if (!data || data.error) { console.warn('Widget:', data?.error); return; }
   const g = data.general;
   document.getElementById('whTot').textContent = g.total        ?? 0;
   document.getElementById('whPre').textContent = g.presentes    ?? 0;
@@ -776,10 +965,9 @@ function actualizarWidget(data) {
   document.getElementById('whJus').textContent = g.justificados ?? 0;
 }
 
-// Fecha del filtro activo (si hay uno) o hoy
 const diaFiltroActivo = <?php echo $diaFiltro > 0 ? $diaFiltro : 0; ?>;
-const mesFiltro       = <?php echo $mesSeleccionado; ?>;
-const anioFiltro      = <?php echo $anioSeleccionado; ?>;
+const mesFiltro  = <?php echo $mesSeleccionado; ?>;
+const anioFiltro = <?php echo $anioSeleccionado; ?>;
 
 function getFechaWidget() {
   if (diaFiltroActivo > 0) {
@@ -789,14 +977,14 @@ function getFechaWidget() {
 }
 
 async function cargarWidgetHoy() {
-  if (!document.getElementById('widgetHoy')) return;
+  const w = document.getElementById('widgetHoy');
+  if (!w) return;
   try {
     const fecha = getFechaWidget();
-    const url   = fecha === 'hoy' ? 'api_presentes_hoy.php' : `api_presentes_hoy.php?fecha=${fecha}`;
-    const resp  = await fetch(url);
-    if (!resp.ok) { console.warn('Widget: HTTP', resp.status); return; }
-    const data  = await resp.json();
-    actualizarWidget(data);
+    const url = fecha==='hoy' ? 'api_presentes_hoy.php' : `api_presentes_hoy.php?fecha=${fecha}`;
+    const resp = await fetch(url);
+    if (!resp.ok) return;
+    actualizarWidget(await resp.json());
   } catch(e) { console.warn('Widget error:', e); }
 }
 

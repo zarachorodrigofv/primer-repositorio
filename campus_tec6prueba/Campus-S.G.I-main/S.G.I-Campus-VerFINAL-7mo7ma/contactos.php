@@ -6,7 +6,8 @@ error_reporting(E_ALL);
 require __DIR__.'/config.php';
 require __DIR__.'/auth.php';
 
-requireLogin();
+require_once __DIR__ . '/auth.php';
+requirePage('contactos');
 
 $user_id = $_SESSION['dni'];
 $pdo = db();

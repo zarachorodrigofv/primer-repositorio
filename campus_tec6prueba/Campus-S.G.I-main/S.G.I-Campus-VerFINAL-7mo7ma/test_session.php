@@ -1,5 +1,5 @@
 <?php
-session_start();
-echo "<pre>";
+require __DIR__ . '/auth.php';
+requireAnyRole(['root']);
+header('Content-Type: text/plain; charset=utf-8');
 print_r($_SESSION);
-echo "<pre>";

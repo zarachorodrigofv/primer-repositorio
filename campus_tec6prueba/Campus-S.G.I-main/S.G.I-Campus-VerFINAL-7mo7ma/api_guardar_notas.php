@@ -6,33 +6,20 @@ require __DIR__.'/config.php';
 require __DIR__.'/auth.php';
 requireLogin();
 
+// API heredada: no recibe curso ni materia y no permite validar la cadena
+// profesor -> materia -> curso -> alumno. Ninguna vista actual la referencia.
+http_response_code(410);
+echo json_encode(['ok'=>false, 'msg'=>'API de notas heredada deshabilitada. UsÃ¡ la carga actual por materia.']);
+exit;
+
 $rol = strtolower($_SESSION['rol'] ?? '');
-if (!in_array($rol, ['profesor','preceptor','directivo'], true)) {
+if (!in_array($rol, ['profesor','preceptor','directivo','admin','root'], true)) {
   http_response_code(403);
   echo json_encode(['ok'=>false, 'msg'=>'No autorizado']);
   exit;
 }
 
 $pdo = db();
-
-// Crear tabla notas si no existe
-$pdo->exec("
-  CREATE TABLE IF NOT EXISTS notas (
-    id INT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
-    alumno_dni INT UNSIGNED NOT NULL,
-    year_escolar_id INT UNSIGNED NOT NULL,
-    vp_c1 VARCHAR(10) NULL,
-    int_c1 VARCHAR(10) NULL,
-    vp_c2 VARCHAR(10) NULL,
-    cierre_anual DECIMAL(4,2) NULL,
-    int_dic VARCHAR(10) NULL,
-    int_feb VARCHAR(10) NULL,
-    amp_mar VARCHAR(10) NULL,
-    informe_final TEXT NULL,
-    fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    UNIQUE KEY uq_alumno_year (alumno_dni, year_escolar_id)
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-");
 
 $raw = file_get_contents('php://input');
 $payload = json_decode($raw, true);

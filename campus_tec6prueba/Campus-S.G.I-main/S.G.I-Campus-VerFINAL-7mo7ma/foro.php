@@ -6,7 +6,8 @@ $cursoIds = [];
 require __DIR__.'/config.php';
 require __DIR__.'/auth.php';
 
-requireLogin();
+require_once __DIR__ . '/auth.php';
+requirePage('foro');
 
 $pdo      = db();
 $user_dni = $_SESSION['dni'];
@@ -41,7 +42,7 @@ if (!$yearEscolarActualId) {
 $cursosAccesibles = []; // [ ['id'=>int,'nombre'=>string,'anio'=>string], ... ]
 $aniosAccesibles  = []; // array de strings tipo '1ro','2do', etc.
 
-if ($rol === 'directivo') {
+if (in_array($rol, ['directivo','admin','root'], true)) {
   // TODOS los cursos
   $sql = "SELECT 
             c.id,
@@ -666,7 +667,7 @@ aside ul li:hover {
 <div class="contenedor-foro">
   <h2 class="titulo">Bienvenido al Foro Institucional</h2>
 
-  <?php if (in_array($rol, ['directivo','preceptor','profesor'])): ?>
+  <?php if (in_array($rol, ['directivo','preceptor','admin','root'])): ?>
   <div class="form-post">
     <input type="text" id="titulo" placeholder="Título de la publicación" />
     <textarea id="contenido" rows="3" placeholder="Escribe la noticia..."></textarea>
@@ -895,6 +896,14 @@ function destinoLegible($post, $cursosMap) {
 
 <script src="/js/main.js"></script>
 <script>
+const csrfTokenForo = <?= json_encode(csrfToken()) ?>;
+const fetchForoSeguro = window.fetch.bind(window);
+window.fetch = (url, options = {}) => {
+  if ((options.method || 'GET').toUpperCase() === 'POST' && options.body instanceof FormData) {
+    options.body.set('csrf_token', csrfTokenForo);
+  }
+  return fetchForoSeguro(url, options);
+};
 window.APP_USER_NAME = "<?=htmlspecialchars($_SESSION['usuario'] ?? $user['nombre'] ?? 'Usuario');?>"; // Iniciales
 
 /* CONTROL DE DESTINO (mostrar select correcto) */

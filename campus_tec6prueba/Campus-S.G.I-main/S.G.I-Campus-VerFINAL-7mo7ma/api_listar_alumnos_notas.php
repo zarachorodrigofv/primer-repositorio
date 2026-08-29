@@ -29,7 +29,7 @@ if ($curso_id <= 0 || $materia_id <= 0) {
 // ========= Cursos permitidos según rol =========
 $cursoIdsPermitidos = null; // null = sin restricción (directivo)
 
-if ($rol === 'directivo') {
+if (in_array($rol, ['directivo','admin','root'], true)) {
   // ve todo
   $cursoIdsPermitidos = null;
 
@@ -45,6 +45,24 @@ if ($rol === 'directivo') {
   $cursoIdsPermitidos = array_map('intval', $cursoIdsPermitidos);
 
 } elseif ($rol === 'profesor') {
+  // El profesor solo puede consultar la materia que tiene asignada.
+  $stMat = $pdo->prepare("
+      SELECT 1
+      FROM docente_materia_curso dmc
+      JOIN curso_materia cm ON cm.id = dmc.curso_materia_id
+      WHERE dmc.maestro_dni = :dni
+        AND cm.curso_id = :curso
+        AND cm.materia_id = :mat
+        AND cm.year_escolar_id = :year
+      LIMIT 1
+  ");
+  $stMat->execute([':dni'=>$dni, ':curso'=>$curso_id, ':mat'=>$materia_id, ':year'=>$year_id]);
+  if (!$stMat->fetchColumn()) {
+      http_response_code(403);
+      echo json_encode(['ok'=>false,'msg'=>'Esta materia no está asignada a este profesor en este curso']);
+      exit;
+  }
+
   // cursos donde dicta materias este año
   $sql = "SELECT DISTINCT c.id
           FROM docente_materia_curso dmc
@@ -65,13 +83,13 @@ if ($rol === 'directivo') {
 }
 
 // Si no hay cursos permitidos (y no es directivo), devolver vacío
-if ($rol !== 'directivo' && empty($cursoIdsPermitidos)) {
+if (!in_array($rol, ['directivo','admin','root'], true) && empty($cursoIdsPermitidos)) {
   echo json_encode(['ok'=>true,'alumnos'=>[]]);
   exit;
 }
 
 // Si el curso no es permitido, devolver vacío
-if ($rol !== 'directivo' && !in_array($curso_id, $cursoIdsPermitidos, true)) {
+if (!in_array($rol, ['directivo','admin','root'], true) && !in_array($curso_id, $cursoIdsPermitidos, true)) {
   echo json_encode(['ok'=>true,'alumnos'=>[]]);
   exit;
 }

@@ -6,8 +6,9 @@ require __DIR__.'/config.php';
 require __DIR__.'/auth.php';
 
 requireLogin();
+requireCsrf();
 $rol = strtolower($_SESSION['rol'] ?? '');
-if (!in_array($rol, ['preceptor','directivo'], true)) {
+if (!in_array($rol, ['preceptor','directivo','admin','root'], true)) {
   http_response_code(403);
   echo json_encode(['ok'=>false,'msg'=>'No autorizado']);
   exit;
@@ -45,26 +46,47 @@ if (!$year_id) {
   exit;
 }
 
+if ($rol === 'preceptor' && !preceptorTieneCurso($pdo, (int)$_SESSION['dni'], $curso_id, $year_id)) {
+  http_response_code(403);
+  echo json_encode(['ok'=>false,'msg'=>'No tenÃ©s acceso a este curso']);
+  exit;
+}
+
 try {
   $pdo->beginTransaction();
 
-  // 1) crear/actualizar usuario de alumno con contraseña temporal estándar
-  $tempPassword = 'Fran123';
-  $passHash = password_hash($tempPassword, PASSWORD_DEFAULT);
-  $sqlUser = "
-    INSERT INTO usuarios (dni, nombre, password, rol, password_changed)
-    VALUES (:dni, :nombre, :pass, 'alumno', 0)
-    ON DUPLICATE KEY UPDATE
-      nombre = VALUES(nombre),
-      password = VALUES(password),
-      rol = 'alumno',
-      password_changed = 0
-  ";
-  $pdo->prepare($sqlUser)->execute([
-    ':dni'    => $dni,
-    ':nombre' => $nombre,
-    ':pass'   => $passHash
-  ]);
+    // 1) El alumno es una cuenta interna creada por la escuela.
+  // No se resetea la contraseña ni se pisa un usuario existente.
+  $stUser = $pdo->prepare("SELECT dni, nombre, rol FROM usuarios WHERE dni = :dni LIMIT 1");
+  $stUser->execute([':dni' => $dni]);
+  $usuarioExistente = $stUser->fetch(PDO::FETCH_ASSOC);
+
+  if ($usuarioExistente) {
+      if ($usuarioExistente['rol'] !== 'alumno') {
+          throw new RuntimeException(
+              'Ese DNI ya pertenece a una cuenta con rol "' . $usuarioExistente['rol'] .
+              '". Primero asignalo como alumno desde la gestión de usuarios.'
+          );
+      }
+      // Si ya es alumno, actualizamos solamente el nombre si viene informado.
+      if ($nombre !== '' && $nombre !== $usuarioExistente['nombre']) {
+          $stUpd = $pdo->prepare("UPDATE usuarios SET nombre = :nombre WHERE dni = :dni");
+          $stUpd->execute([':nombre'=>$nombre, ':dni'=>$dni]);
+      }
+      $tempPassword = null;
+  } else {
+      $tempPassword = 'Fran123';
+      $passHash = password_hash($tempPassword, PASSWORD_DEFAULT);
+      $sqlUser = "
+        INSERT INTO usuarios (dni, nombre, password, rol, password_changed)
+        VALUES (:dni, :nombre, :pass, 'alumno', 0)
+      ";
+      $pdo->prepare($sqlUser)->execute([
+        ':dni' => $dni,
+        ':nombre' => $nombre,
+        ':pass' => $passHash
+      ]);
+  }
 
   // 2) upsert en alumnos (OJO: columna PK es alumno_dni)
   //    Si 'alumno_dni' no es UNIQUE/PRIMARY, añadilo en la DB.

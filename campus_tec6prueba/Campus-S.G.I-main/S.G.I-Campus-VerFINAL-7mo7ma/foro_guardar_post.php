@@ -7,6 +7,7 @@ require __DIR__.'/config.php';
 require __DIR__.'/auth.php';
 
 requireLogin();
+requireCsrf();
 
 $pdo      = db();
 $user_dni = (int)($_SESSION['dni'] ?? 0);
@@ -19,7 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 // Solo estos roles pueden publicar
-if (!in_array($rol, ['directivo','preceptor','profesor'], true)) {
+if (!in_array($rol, ROLES_FORO, true)) {
     http_response_code(403);
     echo "No autorizado";
     exit;
@@ -43,6 +44,25 @@ $tiposPermitidos = ['general','anio','curso','rol'];
 if (!in_array($destino_tipo, $tiposPermitidos, true)) {
     $destino_tipo = 'general';
     $destino_valor = '';
+}
+
+// El destino recibido es un dato no confiable. Un preceptor solo puede usar
+// general o los cursos/aÃ±os derivados de sus asignaciones vigentes.
+if ($rol === 'preceptor' && $destino_tipo !== 'general') {
+    $yearId = currentYearId($pdo);
+    $permitido = false;
+    if ($destino_tipo === 'curso') {
+        $permitido = ctype_digit($destino_valor) && preceptorTieneCurso($pdo, $user_dni, (int)$destino_valor, $yearId);
+    } elseif ($destino_tipo === 'anio') {
+        $st = $pdo->prepare('SELECT 1 FROM preceptor_curso pc JOIN curso c ON c.id=pc.curso_id JOIN curso_year cy ON cy.id=c.curso_year_id WHERE pc.preceptor_dni=? AND pc.year_escolar_id=? AND cy.year=? LIMIT 1');
+        $st->execute([$user_dni, $yearId, $destino_valor]);
+        $permitido = (bool)$st->fetchColumn();
+    }
+    if (!$permitido) {
+        http_response_code(403);
+        echo 'Destino no autorizado';
+        exit;
+    }
 }
 
 // ===========================

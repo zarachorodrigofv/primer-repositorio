@@ -25,7 +25,7 @@ if (!$year_id) {
 
 $params = [':curso'=>$curso_id, ':year'=>$year_id];
 
-if ($rol === 'directivo') {
+if (in_array($rol, ['directivo','admin','root'], true)) {
 
   $sql = "SELECT m.id, m.nombre
           FROM curso_materia cm

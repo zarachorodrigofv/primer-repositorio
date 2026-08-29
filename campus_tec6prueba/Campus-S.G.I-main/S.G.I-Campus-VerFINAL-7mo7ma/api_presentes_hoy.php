@@ -1,16 +1,9 @@
 <?php
 // Suprimir notices para que el JSON no se rompa con warnings de PHP
 error_reporting(0);
-session_start();
 require __DIR__ . '/config.php';
 require __DIR__ . '/auth.php';
-
-if (!isset($_SESSION['rol']) || !in_array($_SESSION['rol'], ['preceptor','directivo'])) {
-    http_response_code(403);
-    echo json_encode(['error' => 'Sin permiso']);
-    exit;
-}
-
+requireAnyRole(ROLES_ASISTENCIA);
 header('Content-Type: application/json');
 
 // Fecha: parámetro GET o hoy
@@ -20,6 +13,15 @@ $fecha = ($fechaParam && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaParam))
     : date('Y-m-d');
 
 $pdo = db();
+$rol = currentRole();
+$yearId = currentYearId($pdo);
+$filtroPreceptor = '';
+$paramsFecha = [$fecha];
+if ($rol === 'preceptor') {
+    $filtroPreceptor = ' AND EXISTS (SELECT 1 FROM asignado_alumno aa2 JOIN preceptor_curso pc ON pc.curso_id=aa2.curso_id AND pc.year_escolar_id=aa2.year_escolar_id WHERE aa2.alumno_dni=a.alumno_dni AND aa2.year_escolar_id=? AND aa2.estado=\'activo\' AND pc.preceptor_dni=?)';
+    $paramsFecha[] = $yearId;
+    $paramsFecha[] = (int)$_SESSION['dni'];
+}
 
 $stmtTotal = $pdo->prepare(
     "SELECT
@@ -29,9 +31,9 @@ $stmtTotal = $pdo->prepare(
         COUNT(CASE WHEN a.estado = 'justificado' THEN 1 END) AS justificados,
         COUNT(*) AS total
      FROM asistencia a
-     WHERE a.fecha = ?"
+     WHERE a.fecha = ? $filtroPreceptor"
 );
-$stmtTotal->execute([$fecha]);
+$stmtTotal->execute($paramsFecha);
 $general = $stmtTotal->fetch();
 
 $stmtCursos = $pdo->prepare(
@@ -51,10 +53,11 @@ $stmtCursos = $pdo->prepare(
      LEFT JOIN modalidad m    ON m.id  = c.modalidad_id
      WHERE a.fecha = ?
        AND aa.estado = 'activo'
+       $filtroPreceptor
      GROUP BY c.id
      ORDER BY cy.id, cd.id"
 );
-$stmtCursos->execute([$fecha]);
+$stmtCursos->execute($paramsFecha);
 $cursos = $stmtCursos->fetchAll();
 
 echo json_encode([

@@ -4,6 +4,12 @@ require __DIR__.'/config.php';
 require __DIR__.'/auth.php';
 
 requireLogin();
+$rol = currentRole();
+if (!in_array($rol, ROLES_LISTADO, true)) {
+  http_response_code(403);
+  echo json_encode(['ok'=>false,'msg'=>'No autorizado']);
+  exit;
+}
 $pdo = db();
 
 // ========= Año lectivo activo (último) =========
@@ -66,8 +72,18 @@ $sql = "
 $params = [':year'=>$year_id];
 
 if ($curso_id > 0) {
+  if ($rol === 'preceptor' && !preceptorTieneCurso($pdo, (int)$_SESSION['dni'], $curso_id, $year_id)) {
+    http_response_code(403);
+    echo json_encode(['ok'=>false,'msg'=>'No tenÃ©s acceso a este curso']);
+    exit;
+  }
   $sql .= " AND aa.curso_id = :curso";
   $params[':curso'] = $curso_id;
+}
+
+if ($rol === 'preceptor' && $curso_id <= 0) {
+  $sql .= " AND EXISTS (SELECT 1 FROM preceptor_curso pc WHERE pc.preceptor_dni = :preceptor AND pc.curso_id = aa.curso_id AND pc.year_escolar_id = aa.year_escolar_id)";
+  $params[':preceptor'] = (int)$_SESSION['dni'];
 }
 
 $sql .= " ORDER BY u.nombre";
@@ -80,4 +96,3 @@ try {
 } catch (Throwable $e) {
   echo json_encode(['ok'=>false, 'msgError'=>$e->getMessage()]);
 }
-

@@ -1,8 +1,6 @@
 <?php
-$conn = new mysqli("sql103.infinityfree.com", "if0_39451587", "Practicastec6", "if0_39451587_campus");
-
-if ($conn->connect_error) {
-    die("❌ Error de conexión: " . $conn->connect_error);
-}
-echo "✅ Conectado correctamente a la base de datos.";
-?>
+require __DIR__ . '/auth.php';
+requireAnyRole(['root']);
+require __DIR__ . '/config.php';
+$pdo = db();
+echo "OK - conexión disponible.";

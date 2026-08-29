@@ -388,50 +388,13 @@ body.dark #aviso-login.error {
 
           <button type="submit">Entrar</button>
         </form>
-        <p class="link-alternativo">¿No tenés una cuenta? 
-          <a href="#" onclick="mostrarRegistro()">Registrate</a>
+        <p class="link-alternativo" style="font-size:13px;color:#64748b;">
+          Las cuentas son administradas por la institución. Si necesitás acceso, contactá al preceptor.
         </p>
       </div>
 
       <!-- REGISTRO -->
-      <div id="form-registro" style="display: none;">
-        <h2>Registro</h2>
-        <form action="registro.php" method="POST" onsubmit="return validarPassword();">
-          <input type="text" name="dni" placeholder="DNI nuevo" required>
-          <input type="text" name="nombre" placeholder="Nombre y apellido" required>
-
-<div class="password-wrapper">
-  <input type="password" id="newPassword" name="password" placeholder="Contraseña nueva" required oninput="chequearFuerza();">
-  <button type="button" class="toggle-password" onclick="togglePassword('newPassword', this)">
-    <img src="imagenes/ojo-cerrado.png" alt="Mostrar contraseña">
-  </button>
-</div>
-
-          <progress id="barraFuerza" value="0" max="100" style="width: 105%;"></progress>
-          <p id="mensajeFuerza"></p>
-
-          <label for="rol" style="width: 105%;">Seleccioná tu rol:</label>
-          <select name="rol" id="rol" required>
-            <option value="">-- Elegí un rol --</option>
-            <option value="alumno">Alumno</option>
-            <option value="familia">Familia</option>
-          </select>
-
-          <label for="escuela" style="width: 105%;">Seleccioná tu escuela:</label>
-          <select name="escuela" id="escuela" required>
-            <option value="">-- Elegí tu escuela --</option>
-            <option value="tecnica n°6">E.E.S.T.N°6</option>
-          </select>
-
-          <button type="submit">Registrarse</button>
-        </form>
-        <p class="link-alternativo">¿Ya tenés cuenta? 
-          <a href="#" onclick="mostrarLogin()">Iniciar sesión</a>
-        </p>
-      </div>
-    </div>
-
-    <div class="side-image">
+      <div class="side-image">
       <img src="imagenes/E.E.S.T N°2.webp" alt="logo escuela tec n2">
     </div>
   </div>
@@ -440,128 +403,53 @@ body.dark #aviso-login.error {
   <button id="modoToggle">🌙</button>
 
   <script>
-    // Chequeo de fuerza de contraseña
-    function chequearFuerza() {
-      const pass = document.getElementById("newPassword").value;
-      const barra = document.getElementById("barraFuerza");
-      const mensaje = document.getElementById("mensajeFuerza");
+    // El registro público fue eliminado. Las cuentas son creadas por la institución.
 
-      let fuerza = 0;
-      if (pass.length >= 8) fuerza += 25;
-      if (/[a-z]/.test(pass)) fuerza += 25;
-      if (/[A-Z]/.test(pass)) fuerza += 25;
-      if (/\d/.test(pass)) fuerza += 25;
-
-      barra.value = fuerza;
-
-      if (fuerza < 100) {
-        mensaje.textContent = "La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número.";
-        mensaje.style.color = "red";
-      } else {
-        mensaje.textContent = "Contraseña segura.";
-        mensaje.style.color = "green";
-      }
-    }
-
-    // Validar antes de enviar registro
-    function validarPassword() {
-      const barra = document.getElementById("barraFuerza").value;
-      if (barra != "100") {
-        alert("La contraseña no cumple con los requisitos de seguridad.");
-        return false;
-      }
-      return true;
-    }
-
-    // Mostrar/Ocultar formularios
-    function mostrarRegistro() {
-      document.getElementById('form-login').style.display = 'none';
-      document.getElementById('form-registro').style.display = 'block';
-    }
-
-    function mostrarLogin() {
-      document.getElementById('form-login').style.display = 'block';
-      document.getElementById('form-registro').style.display = 'none';
-    }
-
-    // Modo oscuro
     const toggle = document.getElementById('modoToggle');
-    toggle.addEventListener('click', () => {
-      document.body.classList.toggle('dark');
-      toggle.textContent = document.body.classList.contains('dark') ? '☀️' : '🌙';
-    });
+    if (toggle) {
+      toggle.addEventListener('click', () => {
+        document.body.classList.toggle('dark');
+        toggle.textContent = document.body.classList.contains('dark') ? '☀️' : '🌙';
+      });
+    }
 
-    // Leer parámetro ?registro= de la URL y mostrar aviso
-    (function() {
-      const params = new URLSearchParams(window.location.search);
-      const estado = params.get('registro');
-      const aviso = document.getElementById('aviso-registro');
-      const estadoLogin = params.get('login');
-const avisoLogin = document.getElementById('aviso-login');
+    // Avisos de login: siempre volvemos al formulario de inicio de sesión.
+    const params = new URLSearchParams(window.location.search);
+    const estadoLogin = params.get('login');
+    const avisoLogin = document.getElementById('aviso-login');
 
-if (estadoLogin === 'error') {
-    const msg = params.get('msg') || 'Error al iniciar sesión.';
+    if (estadoLogin === 'error' && avisoLogin) {
+      const msg = params.get('msg') || 'Error al iniciar sesión.';
+      avisoLogin.textContent = '❌ ' + msg;
+      avisoLogin.classList.add('error');
+      avisoLogin.style.display = 'block';
 
-    avisoLogin.textContent = '❌ ' + msg;
-    avisoLogin.classList.add('error');
-    avisoLogin.style.display = 'block';
+      history.replaceState(null, '', window.location.pathname);
 
-    document.getElementById('form-login').style.display = 'block';
-    document.getElementById('form-registro').style.display = 'none';
-
-    history.replaceState(null, '', window.location.pathname);
-
-    setTimeout(() => {
+      setTimeout(() => {
         avisoLogin.style.transition = 'opacity 0.5s';
         avisoLogin.style.opacity = '0';
         setTimeout(() => {
-            avisoLogin.style.display = 'none';
+          avisoLogin.style.display = 'none';
         }, 500);
-    }, 6000);
-}
-      if (estado === 'ok') {
-        aviso.textContent = '✅ Registro exitoso. Ya podés iniciar sesión.';
-        aviso.classList.add('ok');
-        aviso.style.display = 'block';
-        // Limpiar la URL sin recargar la página
-        history.replaceState(null, '', window.location.pathname);
-      } else if (estado === 'error') {
-        const msg = params.get('msg') || 'Error al registrarse. Intentá de nuevo.';
-        aviso.textContent = '❌ ' + msg;
-        aviso.classList.add('error');
-        aviso.style.display = 'block';
-        // Si hay error, mostrar el formulario de registro en vez del login
-        document.getElementById('form-login').style.display = 'none';
-        document.getElementById('form-registro').style.display = 'block';
-        history.replaceState(null, '', window.location.pathname);
+      }, 6000);
+    }
+
+    function togglePassword(idInput, btn) {
+      const input = document.getElementById(idInput);
+      const img = btn.querySelector('img');
+      if (!input) return;
+
+      if (input.type === 'password') {
+        input.type = 'text';
+        img.src = 'imagenes/ojo-abierto.png';
+        img.alt = 'Ocultar contraseña';
+      } else {
+        input.type = 'password';
+        img.src = 'imagenes/ojo-cerrado.png';
+        img.alt = 'Mostrar contraseña';
       }
-
-      // Ocultar el aviso automáticamente después de 6 segundos
-      if (estado) {
-        setTimeout(() => {
-          aviso.style.transition = 'opacity 0.5s';
-          aviso.style.opacity = '0';
-          setTimeout(() => { aviso.style.display = 'none'; }, 500);
-        }, 6000);
-      }
-    })();
-
-   function togglePassword(idInput, btn) {
-  const input = document.getElementById(idInput);
-  const img = btn.querySelector('img');
-  if (!input) return;
-
-  if (input.type === 'password') {
-    input.type = 'text';
-    img.src = 'imagenes/ojo-abierto.png';
-    img.alt = 'Ocultar contraseña';
-  } else {
-    input.type = 'password';
-    img.src = 'imagenes/ojo-cerrado.png';
-    img.alt = 'Mostrar contraseña';
-  }
-}
-
+    }
   </script>
 </body>
 </html>

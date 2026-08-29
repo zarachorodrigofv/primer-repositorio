@@ -2,6 +2,13 @@
 require __DIR__.'/config.php';
 require __DIR__.'/auth.php';
 requireLogin();
+$rol = currentRole();
+if (!in_array($rol, ROLES_FORO, true)) {
+    http_response_code(403);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['ok'=>false,'msg'=>'No autorizado']);
+    exit;
+}
 
 $pdo = db();
 $rol = $_SESSION['rol'] ?? '';
@@ -9,7 +16,7 @@ $dni = $_SESSION['dni'] ?? 0;
 
 $result = [];
 
-if ($rol === 'directivo') {
+if (in_array($rol, ['directivo','admin','root'], true)) {
     // Todos los cursos
     $sql = "SELECT c.id,
                    CONCAT(cy.year,' ', cd.division,

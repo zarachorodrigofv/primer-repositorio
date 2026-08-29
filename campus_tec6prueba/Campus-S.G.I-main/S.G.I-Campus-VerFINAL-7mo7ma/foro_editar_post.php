@@ -3,6 +3,8 @@ require __DIR__.'/config.php';
 require __DIR__.'/auth.php';
 
 requireLogin();
+requirePage('foro');
+requireCsrf();
 $pdo = db();
 
 $rol = strtolower($_SESSION['rol'] ?? '');
@@ -29,7 +31,7 @@ if (!$autor) {
     exit;
 }
 
-if ($rol !== 'directivo' && $autor != $dni) {
+if (!in_array($rol, ROLES_FULL, true) && $autor != $dni) {
     http_response_code(403);
     echo "No autorizado";
     exit;

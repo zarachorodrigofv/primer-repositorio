@@ -1,12 +1,16 @@
 
 <?php
-require_once 'auth.php';
-requireLogin();
+require_once __DIR__ . '/auth.php';
+requirePage('materias');
 require_once 'config.php';
 require_once 'helpers_academico.php';
 
 $pdo    = db();
 $rol    = strtolower(trim($_SESSION['rol']));
+$verForo = tieneAccesoForo();
+$verMensajeria = tieneAccesoMensajeria();
+$verInfo = in_array($rol, ROLES_INFO, true);
+$verContactos = in_array($rol, ROLES_CONTACTOS, true);
 $dni    = (int)($_SESSION['dni'] ?? 0);
 $usuario = $_SESSION['usuario'] ?? '';
 $yearId = currentYearEscolarId($pdo);
@@ -17,8 +21,8 @@ if ($cursoId <= 0) {
     exit;
 }
 
-$verListado = in_array($rol, ['profesor','preceptor','directivo'], true);
-$verPanel   = in_array($rol, ['preceptor','directivo'], true);
+$verListado = tieneAccesoListado();
+$verPanel   = tieneAccesoPanel();
 
 if (!usuarioTieneAccesoACurso($rol, $dni, $cursoId, $yearId)) {
     http_response_code(403);
@@ -81,11 +85,11 @@ $cursoLabel = htmlspecialchars($infoCurso['year'] . ' ' . $infoCurso['division']
     <?php if ($verPanel): ?>
       <a href="panel_control.php">Panel de Control</a>
     <?php endif; ?>
-    <a href="infoacademica.php">Información académica</a>
+    <?php if ($verInfo): ?><a href="infoacademica.php">Información académica</a><?php endif; ?>
     <a href="materias.php">Materias</a>
-    <a href="foro.php" onclick="closeMenu()">Foro</a>
-    <a href="msg.php">Mensajería</a>
-    <a href="contactos.php">Contactos</a>
+    <?php if ($verForo): ?><a href="foro.php" onclick="closeMenu()">Foro</a><?php endif; ?>
+    <?php if ($verMensajeria): ?><a href="msg.php">Mensajería</a><?php endif; ?>
+    <?php if ($verContactos): ?><a href="contactos.php">Contactos</a><?php endif; ?>
   </div>
 
   <span class="sgi-title">S.G.I</span>
@@ -119,10 +123,10 @@ $cursoLabel = htmlspecialchars($infoCurso['year'] . ' ' . $infoCurso['division']
       <?php if ($verPanel): ?>
         <a href="panel_control.php">Panel de Control</a>
       <?php endif; ?>
-      <a href="infoacademica.php" onclick="closeMenu()">Información académica</a>
+      <?php if ($verInfo): ?><a href="infoacademica.php" onclick="closeMenu()">Información académica</a><?php endif; ?>
       <a href="materias.php" onclick="closeMenu()">Materias</a>
-      <a href="foro.php" onclick="closeMenu()">Foro</a>
-      <a href="contactos.php" onclick="closeMenu()">Contactos</a>
+      <?php if ($verForo): ?><a href="foro.php" onclick="closeMenu()">Foro</a><?php endif; ?>
+      <?php if ($verContactos): ?><a href="contactos.php" onclick="closeMenu()">Contactos</a><?php endif; ?>
     </div>
 
     <div class="menu-bottom">
@@ -143,7 +147,7 @@ $cursoLabel = htmlspecialchars($infoCurso['year'] . ' ' . $infoCurso['division']
     <?php else: ?>
       <?php foreach ($materias as $m): ?>
 <div class="card"
-  <?php if (in_array($rol, ['profesor','preceptor','directivo','alumno','familia'], true)): ?>
+  <?php if (in_array($rol, ['profesor','preceptor','directivo','admin','root'], true)): ?>
     onclick="location.href='notas_curso.php?curso_id=<?= $cursoId; ?>&materia_id=<?= (int)$m['id']; ?>'"
   <?php endif; ?>
 >
@@ -167,4 +171,3 @@ $cursoLabel = htmlspecialchars($infoCurso['year'] . ' ' . $infoCurso['division']
 <script src="/js/main.js"></script>
 </body>
 </html>
-

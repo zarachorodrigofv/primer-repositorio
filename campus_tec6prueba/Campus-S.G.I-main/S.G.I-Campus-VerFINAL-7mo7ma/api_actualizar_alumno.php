@@ -6,9 +6,10 @@ require __DIR__.'/config.php';
 require __DIR__.'/auth.php';
 
 requireLogin();
+requireCsrf();
 $rol = strtolower(currentRole() ?? '');
 
-if (!in_array($rol, ['preceptor','directivo'], true)) {
+if (!in_array($rol, ['preceptor','directivo','admin','root'], true)) {
     echo json_encode(['ok'=>false,'msg'=>'No autorizado']);
     exit;
 }
@@ -25,6 +26,13 @@ $presente  = trim($_POST['presente']  ?? '');
 
 if ($dni <= 0) {
     echo json_encode(['ok'=>false,'msg'=>'DNI inválido']);
+    exit;
+}
+
+$yearId = currentYearId($pdo);
+if ($rol === 'preceptor' && (!$yearId || !preceptorTieneAlumno($pdo, (int)$_SESSION['dni'], $dni, $yearId))) {
+    http_response_code(403);
+    echo json_encode(['ok'=>false,'msg'=>'No tenÃ©s acceso a este alumno']);
     exit;
 }
 
@@ -79,4 +87,3 @@ try {
         'msg' => 'Error al actualizar: '.$e->getMessage()
     ]);
 }
-

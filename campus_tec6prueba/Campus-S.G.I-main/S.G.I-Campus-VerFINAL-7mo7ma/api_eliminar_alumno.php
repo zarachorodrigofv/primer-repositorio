@@ -4,9 +4,10 @@ require __DIR__.'/config.php';
 require __DIR__.'/auth.php';
 
 requireLogin();
+requireCsrf();
 $rol = strtolower(currentRole());
 
-if (!in_array($rol, ['preceptor','directivo'], true)) {
+if (!in_array($rol, ['preceptor','directivo','admin','root'], true)) {
     echo json_encode(['ok'=>false,'msg'=>'No autorizado']);
     exit;
 }
@@ -29,6 +30,14 @@ $year_id = (int)($yearRow['id'] ?? 0);
 if (!$year_id) {
     echo json_encode(['ok'=>false,'msg'=>'No hay año lectivo activo']);
     exit;
+}
+
+if ($rol === 'preceptor') {
+    if ($curso_id <= 0 || !preceptorTieneAlumno($pdo, (int)$_SESSION['dni'], $alumno_dni, $year_id, $curso_id)) {
+        http_response_code(403);
+        echo json_encode(['ok'=>false,'msg'=>'No tenÃ©s acceso a este alumno o curso']);
+        exit;
+    }
 }
 
 try {

@@ -5,13 +5,14 @@ error_reporting(E_ALL);
 
 require __DIR__.'/config.php';
 require __DIR__.'/auth.php';
-requireLogin();
+require_once __DIR__ . '/auth.php';
+requirePage('info');
 
 $pdo = db();
 $rol = strtolower(trim($_SESSION['rol'] ?? ''));
 
 // quién puede editar
-$soloLectura = !in_array($rol, ['profesor','preceptor','directivo'], true);
+$soloLectura = !in_array($rol, ROLES_INFO, true);
 
 // año lectivo activo (el más alto)
 $yearRow = $pdo->query("SELECT id, `year` FROM year_escolar ORDER BY `year` DESC LIMIT 1")->fetch();
@@ -586,7 +587,7 @@ async function guardarNotas(){
     const r = await fetch('api_guardar_notas_detalle.php', {
       method: 'POST',
       credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': <?= json_encode(csrfToken()) ?> },
       body: JSON.stringify({
         materia_id: parseInt(materiaId, 10),
         data: rows
@@ -648,4 +649,3 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </body>
 </html>
-
