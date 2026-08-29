@@ -1,13 +1,17 @@
 <?php
-session_start();
+require_once __DIR__ . '/auth.php';
+requireAnyRole(ROLES_PANEL);
+if ($_SERVER['REQUEST_METHOD'] === 'POST') requireCsrf();
 
-$rol = strtolower($_SESSION['rol'] ?? '');
+$rol = currentRole();
+$rolesPanel = ['directivo','admin','root','jefe_preceptores','preceptor'];
+$rolesAsignarProfes = CAP_ASIGNAR_DOCENTES;
 
-// Permitir DIRECTIVO y PRECEPTOR
-if (!in_array($rol, ['directivo','preceptor'], true)) {
-    header("Location: index.html");
-    exit;
-}
+// Capacidades según rol
+$puedeAsignarProfes   = in_array($rol, $rolesAsignarProfes, true);
+$puedeAsignarPreceptor = in_array($rol, ['directivo','admin','root','jefe_preceptores'], true);
+$puedeVincularFamilia  = in_array($rol, CAP_GESTION_ALUMNOS, true);
+$esDirectivoOSuperior  = in_array($rol, ['directivo','admin','root'], true);
 
 $dniUsuario = (int)($_SESSION['dni'] ?? 0);
 
@@ -43,7 +47,7 @@ $mensaje = "";
 // Asignar materia a profesor en un curso (directivo y preceptor)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'asignar_docente') {
 
-    if (!in_array($rol, ['directivo','preceptor'], true)) {
+    if (!in_array($rol, ['directivo','admin','root','jefe_area','jefe_taller','jefe_departamento'], true)) {
         $mensaje = "No autorizado para asignar materias.";
     } else {
         $maestro_dni = (int)($_POST['maestro_dni'] ?? 0);
@@ -99,11 +103,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'asign
     }
 }
 
-// Asignar curso a preceptor (SOLO DIRECTIVO)
+// Asignar curso a preceptor
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'asignar_preceptor') {
 
-    if ($rol !== 'directivo') {
-        $mensaje = "Solo los directivos pueden asignar cursos a preceptores.";
+    if (!in_array($rol, ['directivo','admin','root','jefe_preceptores'], true)) {
+        $mensaje = "No tenés permisos para asignar cursos a preceptores.";
     } else {
         $preceptor_dni = (int)($_POST['preceptor_dni'] ?? 0);
         $curso_id      = (int)($_POST['curso_id'] ?? 0);
@@ -136,6 +140,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'asign
 
 // Asignar familia a alumno
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'asignar_familia') {
+    if (!in_array($rol, CAP_GESTION_ALUMNOS, true)) {
+        $mensaje = 'No tenés permisos para vincular familias.';
+    } else {
     $familia_dni = (int)($_POST['familia_dni'] ?? 0);
     $alumno_dni  = (int)($_POST['alumno_dni'] ?? 0);
     $parentesco  = trim($_POST['parentesco'] ?? '');
@@ -168,11 +175,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'asign
     } else {
         $mensaje = "Faltan datos para vincular familia y alumno.";
     }
+    }
 }
 
 // Borrar asignación docente-materia-curso
-if (isset($_GET['del_dmc'])) {
-    $id = (int)$_GET['del_dmc'];
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'del_dmc' && in_array($rol, ['root','admin','directivo'], true)) {
+    $id = (int)($_POST['id'] ?? 0);
     if ($id) {
         $stmt = $conn->prepare("DELETE FROM docente_materia_curso WHERE id=?");
         $stmt->bind_param("i", $id);
@@ -183,8 +191,8 @@ if (isset($_GET['del_dmc'])) {
 }
 
 // Borrar asignación preceptor-curso
-if (isset($_GET['del_prec'])) {
-    $id = (int)$_GET['del_prec'];
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'del_prec' && in_array($rol, ['root','admin','directivo','jefe_preceptores'], true)) {
+    $id = (int)($_POST['id'] ?? 0);
     if ($id) {
         $stmt = $conn->prepare("DELETE FROM preceptor_curso WHERE id=?");
         $stmt->bind_param("i", $id);
@@ -195,8 +203,8 @@ if (isset($_GET['del_prec'])) {
 }
 
 // Borrar vínculo familia-alumno
-if (isset($_GET['del_fam'])) {
-    $id = (int)$_GET['del_fam'];
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'del_fam' && in_array($rol, ['root','admin','directivo'], true)) {
+    $id = (int)($_POST['id'] ?? 0);
     if ($id) {
         $stmt = $conn->prepare("DELETE FROM familia_alumno WHERE id=?");
         $stmt->bind_param("i", $id);
@@ -228,8 +236,8 @@ while ($fila = $res->fetch_assoc()) { $materias[] = $fila; }
 // CURSOS SEGÚN ROL
 $cursos = [];
 
-if ($rol === 'directivo') {
-    // DIRECTIVO VE TODOS LOS CURSOS
+if (in_array($rol, ['directivo','admin','root','jefe_preceptores','jefe_area','jefe_taller','jefe_departamento'], true)) {
+    // Roles de gestión ven todos los cursos
     $sqlCursos = "SELECT c.id,
                          CONCAT(cy.year,' ', cd.division,
                                 IF(mo.nombre IS NULL,'', CONCAT(' - ', mo.nombre))) AS nombre
@@ -422,11 +430,13 @@ $nombreUsuario = $_SESSION['usuario'] ?? 'Usuario';
     <div class="mensaje"><?php echo htmlspecialchars($mensaje); ?></div>
 
     <div class="cards">
-      <!-- CARD 1: materias a profesores (directivo y preceptor) -->
+      <!-- CARD 1: asignar materias a profes -->
+      <?php if ($puedeAsignarProfes): ?>
       <div class="card">
         <h3>Asignar materias a profesores</h3>
         <form method="POST">
           <input type="hidden" name="accion" value="asignar_docente">
+          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">
           <div>
             <label>Profesor:</label>
             <div class="search-wrap">
@@ -478,13 +488,15 @@ $nombreUsuario = $_SESSION['usuario'] ?? 'Usuario';
           <button type="submit" class="btn">Asignar materia</button>
         </form>
       </div>
+      <?php endif; ?>
 
-      <?php if ($rol === 'directivo'): ?>
+      <?php if ($puedeAsignarPreceptor): ?>
       <!-- CARD 2: cursos a preceptores (solo directivo) -->
       <div class="card">
         <h3>Asignar cursos a preceptores</h3>
         <form method="POST">
           <input type="hidden" name="accion" value="asignar_preceptor">
+          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">
           <div>
             <label>Preceptor:</label>
             <div class="search-wrap">
@@ -522,6 +534,39 @@ $nombreUsuario = $_SESSION['usuario'] ?? 'Usuario';
       </div>
       <?php endif; ?>
 
+
+      <?php if (in_array($rol, ['root','admin','directivo','jefe_preceptores'], true)): ?>
+      <div class="card">
+        <h3>➕ Agregar preceptor</h3>
+        <form method="POST" onsubmit="return agregarUsuarioPanel('preceptor', this);">
+          <label>Nombre completo:</label>
+          <input type="text" name="nombre" required placeholder="Apellido y nombre">
+          <label>DNI:</label>
+          <input type="text" name="dni" required inputmode="numeric" placeholder="DNI">
+          <label>Contraseña inicial (opcional):</label>
+          <input type="password" name="password" placeholder="Se generará Pre1234 si queda vacío">
+          <button type="submit" class="btn">Crear preceptor</button>
+        </form>
+      </div>
+      <?php endif; ?>
+
+      <?php if (in_array($rol, ['root','admin','directivo'], true)): ?>
+      <div class="card">
+        <h3>➕ Agregar profesor</h3>
+        <form onsubmit="return agregarUsuarioPanel('profesor', this);">
+          <label>Nombre completo:</label>
+          <input type="text" name="nombre" required placeholder="Apellido y nombre">
+          <label>DNI:</label>
+          <input type="text" name="dni" required inputmode="numeric" placeholder="DNI">
+          <label>Contraseña inicial (opcional):</label>
+          <input type="password" name="password" placeholder="Se generará Pro1234 si queda vacío">
+          <button type="submit" class="btn">Crear profesor</button>
+        </form>
+      </div>
+      <?php endif; ?>
+
+
+      <?php if ($puedeVincularFamilia): ?>
       <!-- CARD 3: vincular familia con alumno -->
       <div class="card">
         <h3>Vincular familia con alumno</h3>
@@ -530,6 +575,7 @@ $nombreUsuario = $_SESSION['usuario'] ?? 'Usuario';
         <?php endif; ?>
         <form method="POST">
           <input type="hidden" name="accion" value="asignar_familia">
+          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">
           <div>
             <label>Familia:</label>
             <div class="search-wrap">
@@ -576,9 +622,11 @@ $nombreUsuario = $_SESSION['usuario'] ?? 'Usuario';
           <button type="submit" class="btn">Vincular familia y alumno</button>
         </form>
       </div>
+      <?php endif; ?>
     </div>
 
     <!-- Listado de asignaciones -->
+    <?php if ($puedeAsignarProfes): ?>
     <div class="card">
       <h3>Materias por profesor y curso</h3>
       <table>
@@ -602,7 +650,9 @@ $nombreUsuario = $_SESSION['usuario'] ?? 'Usuario';
               <td><?php echo htmlspecialchars($row['curso']); ?></td>
               <td><?php echo htmlspecialchars($row['materia']); ?></td>
               <td class="acciones">
-                <a href="?del_dmc=<?php echo $row['id']; ?>" onclick="return confirm('¿Eliminar esta asignación?');">Eliminar</a>
+                <?php if (in_array($rol, ['root','admin','directivo'], true)): ?>
+<form method="post" onsubmit="return confirm('¿Eliminar esta asignación?');"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>"><input type="hidden" name="accion" value="del_dmc"><input type="hidden" name="id" value="<?= (int)$row['id'] ?>"><button type="submit">Eliminar</button></form>
+<?php else: ?>—<?php endif; ?>
               </td>
             </tr>
           <?php endforeach; ?>
@@ -610,7 +660,9 @@ $nombreUsuario = $_SESSION['usuario'] ?? 'Usuario';
         </tbody>
       </table>
     </div>
+    <?php endif; ?>
 
+    <?php if ($puedeAsignarPreceptor): ?>
     <div class="card">
       <h3>Cursos asignados a preceptores</h3>
       <table>
@@ -632,7 +684,9 @@ $nombreUsuario = $_SESSION['usuario'] ?? 'Usuario';
               <td><?php echo $row['preceptor_dni']; ?></td>
               <td><?php echo htmlspecialchars($row['curso']); ?></td>
               <td class="acciones">
-                <a href="?del_prec=<?php echo $row['id']; ?>" onclick="return confirm('¿Eliminar esta asignación?');">Eliminar</a>
+                <?php if (in_array($rol, ['root','admin','directivo','jefe_preceptores'], true)): ?>
+<form method="post" onsubmit="return confirm('¿Eliminar esta asignación?');"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>"><input type="hidden" name="accion" value="del_prec"><input type="hidden" name="id" value="<?= (int)$row['id'] ?>"><button type="submit">Eliminar</button></form>
+<?php else: ?>—<?php endif; ?>
               </td>
             </tr>
           <?php endforeach; ?>
@@ -640,7 +694,9 @@ $nombreUsuario = $_SESSION['usuario'] ?? 'Usuario';
         </tbody>
       </table>
     </div>
+    <?php endif; ?>
 
+    <?php if ($puedeVincularFamilia): ?>
     <div class="card">
       <h3>Familia vinculada a alumnos</h3>
       <table>
@@ -666,7 +722,9 @@ $nombreUsuario = $_SESSION['usuario'] ?? 'Usuario';
               <td><?php echo $row['familia_dni']; ?></td>
               <td><?php echo htmlspecialchars($row['parentesco']); ?></td>
               <td class="acciones">
-                <a href="?del_fam=<?php echo $row['id']; ?>" onclick="return confirm('¿Eliminar este vínculo?');">Eliminar</a>
+                <?php if (in_array($rol, ['root','admin','directivo'], true)): ?>
+<form method="post" onsubmit="return confirm('¿Eliminar este vínculo?');"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>"><input type="hidden" name="accion" value="del_fam"><input type="hidden" name="id" value="<?= (int)$row['id'] ?>"><button type="submit">Eliminar</button></form>
+<?php else: ?>—<?php endif; ?>
               </td>
             </tr>
           <?php endforeach; ?>
@@ -674,11 +732,20 @@ $nombreUsuario = $_SESSION['usuario'] ?? 'Usuario';
         </tbody>
       </table>
     </div>
+    <?php endif; ?>
 
   </div>
 </main>
 
 <script>
+const csrfTokenPanel = <?= json_encode(csrfToken()) ?>;
+const fetchPanelSeguro = window.fetch.bind(window);
+window.fetch = (url, options = {}) => {
+  if ((options.method || 'GET').toUpperCase() === 'POST' && options.body instanceof FormData) {
+    options.body.set('csrf_token', csrfTokenPanel);
+  }
+  return fetchPanelSeguro(url, options);
+};
   // Iniciales del usuario en el avatar
   const nombreUsuario = <?php echo json_encode($nombreUsuario); ?>;
   const initials = nombreUsuario.split(" ").map(p=>p.charAt(0)).join("").substring(0,2).toUpperCase();
@@ -759,7 +826,21 @@ $nombreUsuario = $_SESSION['usuario'] ?? 'Usuario';
     accountMenu.style.display = accountMenu.style.display === "block" ? "none" : "block";
   });
   document.addEventListener("click", ()=> accountMenu.style.display="none");
+
+function agregarUsuarioPanel(tipo, form) {
+  const fd = new FormData(form);
+  fd.append('rol', tipo);
+  fetch('api_agregar_usuario.php', {method:'POST', body:fd, credentials:'same-origin'})
+    .then(r=>r.json())
+    .then(j=>{
+      if (!j.ok) { alert(j.msg || 'No se pudo crear el usuario.'); return; }
+      alert('Usuario creado correctamente.\nContraseña temporal: ' + j.temp_password);
+      form.reset();
+      location.reload();
+    })
+    .catch(()=>alert('Error de red.'));
+  return false;
+}
 </script>
 </body>
 </html>
-

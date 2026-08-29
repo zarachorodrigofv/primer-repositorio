@@ -2,10 +2,10 @@
 -- version 5.2.1
 -- https://www.phpmyadmin.net/
 --
--- Servidor: 127.0.0.1
--- Tiempo de generación: 10-06-2026 a las 17:54:52
--- Versión del servidor: 10.4.32-MariaDB
--- Versión de PHP: 8.2.12
+-- Host: 127.0.0.1
+-- Generation Time: Aug 16, 2026 at 10:56 PM
+-- Server version: 10.4.32-MariaDB
+-- PHP Version: 8.2.12
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -18,17 +18,17 @@ SET time_zone = "+00:00";
 /*!40101 SET NAMES utf8mb4 */;
 
 --
--- Base de datos: `campus`
+-- Database: `campus`
 --
 
 -- --------------------------------------------------------
 
 --
--- Estructura de tabla para la tabla `alumnos`
+-- Table structure for table `alumnos`
 --
 
 CREATE TABLE `alumnos` (
-  `alumno_dni` int(10) UNSIGNED NOT NULL,
+  `alumno_dni` varchar(20) NOT NULL,
   `telefono` varchar(50) DEFAULT NULL,
   `direccion` varchar(200) DEFAULT NULL,
   `ausente` int(11) DEFAULT 0,
@@ -36,26 +36,26 @@ CREATE TABLE `alumnos` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Volcado de datos para la tabla `alumnos`
+-- Dumping data for table `alumnos`
 --
 
 INSERT INTO `alumnos` (`alumno_dni`, `telefono`, `direccion`, `ausente`, `presente`) VALUES
-(111222, '1112345678', 'Av.Falsa 123', 0, 0),
-(12345678, '1187654321', 'Ok 123', 6, 12),
-(23456789, '1234567891', 'lala 123', 2, 10),
-(44555666, NULL, NULL, 0, 0),
-(45262626, '', '', 0, 0),
-(98765432, '1122223333', 'OK 123', 1, 2);
+('111222', '1112345678', 'Av.Falsa 123', 0, 0),
+('12345678', '1187654321', 'Ok 123', 6, 12),
+('23456789', '1234567891', 'lala 123', 2, 10),
+('44555666', NULL, NULL, 0, 0),
+('45262626', '', '', 0, 0),
+('98765432', '1122223333', 'OK 123', 1, 2);
 
 -- --------------------------------------------------------
 
 --
--- Estructura de tabla para la tabla `asignado_alumno`
+-- Table structure for table `asignado_alumno`
 --
 
 CREATE TABLE `asignado_alumno` (
   `id` int(10) UNSIGNED NOT NULL,
-  `alumno_dni` int(10) UNSIGNED NOT NULL,
+  `alumno_dni` varchar(20) NOT NULL,
   `curso_id` int(11) NOT NULL,
   `year_escolar_id` int(11) NOT NULL,
   `estado` enum('activo','baja') DEFAULT 'activo',
@@ -65,66 +65,134 @@ CREATE TABLE `asignado_alumno` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Volcado de datos para la tabla `asignado_alumno`
+-- Dumping data for table `asignado_alumno`
 --
 
 INSERT INTO `asignado_alumno` (`id`, `alumno_dni`, `curso_id`, `year_escolar_id`, `estado`, `fecha_inscripcion`, `fecha_baja`, `motivo_baja`) VALUES
-(3, 98765432, 1, 1, 'activo', '2025-11-17', NULL, NULL),
-(4, 23456789, 1, 1, 'activo', '2025-11-27', NULL, NULL),
-(5, 12345678, 2, 1, 'activo', '2025-11-27', NULL, NULL),
-(6, 45262626, 21, 1, 'activo', '2026-06-10', NULL, NULL);
+(3, '98765432', 1, 1, 'activo', '2025-11-17', NULL, NULL),
+(4, '23456789', 1, 1, 'activo', '2025-11-27', NULL, NULL),
+(5, '12345678', 2, 1, 'activo', '2025-11-27', NULL, NULL),
+(6, '45262626', 21, 1, 'activo', '2026-06-10', NULL, NULL);
 
 -- --------------------------------------------------------
 
 --
--- Estructura de tabla para la tabla `asignado_profesor`
+-- Table structure for table `asignado_profesor`
 --
 
 CREATE TABLE `asignado_profesor` (
   `id` int(10) UNSIGNED NOT NULL,
-  `maestro_dni` int(10) UNSIGNED NOT NULL,
+  `maestro_dni` varchar(20) NOT NULL,
   `materias_year_id` int(10) UNSIGNED NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
 --
--- Estructura de tabla para la tabla `asistencia`
+-- Table structure for table `asistencia`
 --
 
 CREATE TABLE `asistencia` (
   `id` int(11) NOT NULL,
-  `alumno_dni` int(10) UNSIGNED NOT NULL,
+  `alumno_dni` varchar(20) NOT NULL,
   `fecha` date NOT NULL,
   `estado` enum('presente','ausente','tarde','justificado') NOT NULL,
   `motivo_justificado` text DEFAULT NULL COMMENT 'Motivo cuando estado = justificado'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Volcado de datos para la tabla `asistencia`
+-- Dumping data for table `asistencia`
 --
 
 INSERT INTO `asistencia` (`id`, `alumno_dni`, `fecha`, `estado`, `motivo_justificado`) VALUES
-(4, 44555666, '2025-03-01', 'presente', NULL),
-(5, 44555666, '2025-03-02', 'presente', NULL),
-(6, 44555666, '2025-03-03', 'ausente', NULL),
-(7, 44555666, '2025-01-01', 'presente', NULL),
-(60, 44555666, '2025-11-01', 'presente', NULL),
-(61, 44555666, '2025-11-02', 'ausente', NULL),
-(62, 44555666, '2025-11-03', 'ausente', NULL),
-(63, 44555666, '2025-11-05', 'presente', NULL),
-(64, 44555666, '2025-11-06', 'ausente', NULL),
-(65, 44555666, '2025-11-07', 'presente', NULL),
-(66, 44555666, '2025-11-09', 'ausente', NULL),
-(67, 44555666, '2025-11-18', 'ausente', NULL),
-(69, 98765432, '2025-11-01', 'presente', NULL),
-(82, 23456789, '2026-06-01', 'justificado', 'hhoolaa'),
-(83, 98765432, '2026-06-01', 'tarde', NULL);
+(4, '44555666', '2025-03-01', 'presente', NULL),
+(5, '44555666', '2025-03-02', 'presente', NULL),
+(6, '44555666', '2025-03-03', 'ausente', NULL),
+(7, '44555666', '2025-01-01', 'presente', NULL),
+(60, '44555666', '2025-11-01', 'presente', NULL),
+(61, '44555666', '2025-11-02', 'ausente', NULL),
+(62, '44555666', '2025-11-03', 'ausente', NULL),
+(63, '44555666', '2025-11-05', 'presente', NULL),
+(64, '44555666', '2025-11-06', 'ausente', NULL),
+(65, '44555666', '2025-11-07', 'presente', NULL),
+(66, '44555666', '2025-11-09', 'ausente', NULL),
+(67, '44555666', '2025-11-18', 'ausente', NULL),
+(69, '98765432', '2025-11-01', 'presente', NULL),
+(82, '23456789', '2026-06-01', 'justificado', 'hhoolaa'),
+(83, '98765432', '2026-06-01', 'tarde', NULL),
+(271, '23456789', '2026-03-31', 'presente', NULL),
+(272, '98765432', '2026-03-31', 'presente', NULL),
+(410, '23456789', '2026-04-08', 'presente', NULL),
+(411, '12345678', '2026-07-08', 'justificado', 'k'),
+(412, '45262626', '2026-07-07', 'presente', NULL),
+(413, '45262626', '2026-07-08', 'presente', NULL),
+(502, '23456789', '2026-07-01', 'ausente', NULL),
+(503, '23456789', '2026-07-06', 'ausente', NULL),
+(504, '23456789', '2026-07-07', 'presente', NULL),
+(505, '23456789', '2026-07-08', 'ausente', NULL),
+(506, '23456789', '2026-07-09', 'presente', NULL),
+(507, '23456789', '2026-07-10', 'justificado', 'k'),
+(508, '23456789', '2026-07-13', 'presente', NULL),
+(509, '23456789', '2026-07-14', 'presente', NULL),
+(510, '23456789', '2026-07-15', 'presente', NULL),
+(511, '23456789', '2026-07-16', 'ausente', NULL),
+(512, '23456789', '2026-07-17', 'presente', NULL),
+(513, '23456789', '2026-07-20', 'presente', NULL),
+(514, '23456789', '2026-07-21', 'presente', NULL),
+(515, '23456789', '2026-07-22', 'presente', NULL),
+(516, '23456789', '2026-07-23', 'presente', NULL),
+(517, '23456789', '2026-07-24', 'tarde', NULL),
+(518, '23456789', '2026-07-27', 'tarde', NULL),
+(519, '23456789', '2026-07-28', 'presente', NULL),
+(520, '23456789', '2026-07-29', 'presente', NULL),
+(521, '23456789', '2026-07-30', 'presente', NULL),
+(522, '23456789', '2026-07-31', 'presente', NULL),
+(523, '98765432', '2026-07-01', 'ausente', NULL),
+(524, '98765432', '2026-07-02', 'presente', NULL),
+(525, '98765432', '2026-07-03', 'tarde', NULL),
+(526, '98765432', '2026-07-06', 'presente', NULL),
+(527, '98765432', '2026-07-07', 'presente', NULL),
+(528, '98765432', '2026-07-08', 'presente', NULL),
+(529, '98765432', '2026-07-09', 'ausente', NULL),
+(530, '98765432', '2026-07-10', 'presente', NULL),
+(531, '98765432', '2026-07-13', 'presente', NULL),
+(532, '98765432', '2026-07-14', 'ausente', NULL),
+(533, '98765432', '2026-07-15', 'ausente', NULL),
+(534, '98765432', '2026-07-16', 'presente', NULL),
+(535, '98765432', '2026-07-17', 'presente', NULL),
+(536, '98765432', '2026-07-20', 'presente', NULL),
+(537, '98765432', '2026-07-21', 'presente', NULL),
+(538, '98765432', '2026-07-22', 'ausente', NULL),
+(539, '98765432', '2026-07-23', 'ausente', NULL),
+(540, '98765432', '2026-07-24', 'ausente', NULL),
+(541, '98765432', '2026-07-27', 'tarde', NULL),
+(542, '98765432', '2026-07-28', 'presente', NULL),
+(543, '98765432', '2026-07-29', 'presente', NULL),
+(544, '98765432', '2026-07-30', 'presente', NULL),
+(545, '98765432', '2026-07-31', 'presente', NULL),
+(547, '23456789', '2026-04-22', 'presente', NULL),
+(548, '98765432', '2026-04-22', 'ausente', NULL),
+(549, '23456789', '2026-04-23', 'ausente', NULL),
+(565, '23456789', '2026-08-03', 'presente', NULL),
+(566, '23456789', '2026-08-04', 'presente', NULL),
+(567, '23456789', '2026-08-05', 'presente', NULL),
+(568, '23456789', '2026-08-07', 'presente', NULL),
+(569, '23456789', '2026-08-10', 'presente', NULL),
+(570, '23456789', '2026-08-13', 'presente', NULL),
+(571, '23456789', '2026-08-18', 'presente', NULL),
+(572, '23456789', '2026-08-19', 'presente', NULL),
+(573, '98765432', '2026-08-05', 'presente', NULL),
+(574, '98765432', '2026-08-06', 'presente', NULL),
+(575, '98765432', '2026-08-12', 'presente', NULL),
+(576, '98765432', '2026-08-14', 'presente', NULL),
+(577, '98765432', '2026-08-17', 'presente', NULL),
+(578, '98765432', '2026-08-18', 'presente', NULL),
+(579, '98765432', '2026-08-19', 'presente', NULL);
 
 -- --------------------------------------------------------
 
 --
--- Estructura de tabla para la tabla `curso`
+-- Table structure for table `curso`
 --
 
 CREATE TABLE `curso` (
@@ -135,7 +203,7 @@ CREATE TABLE `curso` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='CURSO_YEAR + CURSO_DIVISION = CURSO';
 
 --
--- Volcado de datos para la tabla `curso`
+-- Dumping data for table `curso`
 --
 
 INSERT INTO `curso` (`id`, `curso_year_id`, `curso_division_id`, `modalidad_id`) VALUES
@@ -192,7 +260,7 @@ INSERT INTO `curso` (`id`, `curso_year_id`, `curso_division_id`, `modalidad_id`)
 -- --------------------------------------------------------
 
 --
--- Estructura de tabla para la tabla `curso_division`
+-- Table structure for table `curso_division`
 --
 
 CREATE TABLE `curso_division` (
@@ -201,7 +269,7 @@ CREATE TABLE `curso_division` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Volcado de datos para la tabla `curso_division`
+-- Dumping data for table `curso_division`
 --
 
 INSERT INTO `curso_division` (`id`, `division`) VALUES
@@ -216,7 +284,7 @@ INSERT INTO `curso_division` (`id`, `division`) VALUES
 -- --------------------------------------------------------
 
 --
--- Estructura de tabla para la tabla `curso_materia`
+-- Table structure for table `curso_materia`
 --
 
 CREATE TABLE `curso_materia` (
@@ -227,7 +295,7 @@ CREATE TABLE `curso_materia` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Volcado de datos para la tabla `curso_materia`
+-- Dumping data for table `curso_materia`
 --
 
 INSERT INTO `curso_materia` (`id`, `curso_id`, `materia_id`, `year_escolar_id`) VALUES
@@ -237,7 +305,7 @@ INSERT INTO `curso_materia` (`id`, `curso_id`, `materia_id`, `year_escolar_id`) 
 -- --------------------------------------------------------
 
 --
--- Estructura de tabla para la tabla `curso_year`
+-- Table structure for table `curso_year`
 --
 
 CREATE TABLE `curso_year` (
@@ -246,7 +314,7 @@ CREATE TABLE `curso_year` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Volcado de datos para la tabla `curso_year`
+-- Dumping data for table `curso_year`
 --
 
 INSERT INTO `curso_year` (`id`, `year`) VALUES
@@ -261,7 +329,7 @@ INSERT INTO `curso_year` (`id`, `year`) VALUES
 -- --------------------------------------------------------
 
 --
--- Estructura de tabla para la tabla `docente_materia_curso`
+-- Table structure for table `docente_materia_curso`
 --
 
 CREATE TABLE `docente_materia_curso` (
@@ -271,7 +339,7 @@ CREATE TABLE `docente_materia_curso` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Volcado de datos para la tabla `docente_materia_curso`
+-- Dumping data for table `docente_materia_curso`
 --
 
 INSERT INTO `docente_materia_curso` (`id`, `maestro_dni`, `curso_materia_id`) VALUES
@@ -281,28 +349,20 @@ INSERT INTO `docente_materia_curso` (`id`, `maestro_dni`, `curso_materia_id`) VA
 -- --------------------------------------------------------
 
 --
--- Estructura de tabla para la tabla `familia_alumno`
+-- Table structure for table `familia_alumno`
 --
 
 CREATE TABLE `familia_alumno` (
-  `id` int(10) UNSIGNED NOT NULL,
-  `familia_dni` int(10) UNSIGNED NOT NULL,
-  `alumno_dni` int(10) UNSIGNED NOT NULL,
-  `parentesco` varchar(50) DEFAULT NULL,
-  `contacto_prioritario` tinyint(1) DEFAULT 0
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Volcado de datos para la tabla `familia_alumno`
---
-
-INSERT INTO `familia_alumno` (`id`, `familia_dni`, `alumno_dni`, `parentesco`, `contacto_prioritario`) VALUES
-(2, 77888999, 98765432, 'Tutor', 0);
+  `id` int(11) NOT NULL,
+  `familia_dni` int(11) NOT NULL,
+  `alumno_dni` int(11) NOT NULL,
+  `parentesco` varchar(60) NOT NULL DEFAULT ''
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
 --
--- Estructura de tabla para la tabla `foro`
+-- Table structure for table `foro`
 --
 
 CREATE TABLE `foro` (
@@ -320,7 +380,7 @@ CREATE TABLE `foro` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Volcado de datos para la tabla `foro`
+-- Dumping data for table `foro`
 --
 
 INSERT INTO `foro` (`id`, `titulo`, `contenido`, `imagen`, `fecha`, `fecha_edicion`, `editado`, `autor_dni`, `destino_tipo`, `destino_valor`, `archivo_nombre_original`) VALUES
@@ -342,7 +402,7 @@ INSERT INTO `foro` (`id`, `titulo`, `contenido`, `imagen`, `fecha`, `fecha_edici
 -- --------------------------------------------------------
 
 --
--- Estructura de tabla para la tabla `materias`
+-- Table structure for table `materias`
 --
 
 CREATE TABLE `materias` (
@@ -351,7 +411,7 @@ CREATE TABLE `materias` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Volcado de datos para la tabla `materias`
+-- Dumping data for table `materias`
 --
 
 INSERT INTO `materias` (`id`, `nombre`) VALUES
@@ -376,7 +436,7 @@ INSERT INTO `materias` (`id`, `nombre`) VALUES
 -- --------------------------------------------------------
 
 --
--- Estructura de tabla para la tabla `materias_year`
+-- Table structure for table `materias_year`
 --
 
 CREATE TABLE `materias_year` (
@@ -389,7 +449,7 @@ CREATE TABLE `materias_year` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Volcado de datos para la tabla `materias_year`
+-- Dumping data for table `materias_year`
 --
 
 INSERT INTO `materias_year` (`id`, `materia_id`, `materias_id`, `curso_year_id`, `modalidad_id`, `year_escolar_id`) VALUES
@@ -398,7 +458,7 @@ INSERT INTO `materias_year` (`id`, `materia_id`, `materias_id`, `curso_year_id`,
 -- --------------------------------------------------------
 
 --
--- Estructura de tabla para la tabla `mensajes`
+-- Table structure for table `mensajes`
 --
 
 CREATE TABLE `mensajes` (
@@ -410,7 +470,7 @@ CREATE TABLE `mensajes` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Volcado de datos para la tabla `mensajes`
+-- Dumping data for table `mensajes`
 --
 
 INSERT INTO `mensajes` (`id`, `remitente`, `destinatario`, `mensaje`, `fecha`) VALUES
@@ -428,7 +488,7 @@ INSERT INTO `mensajes` (`id`, `remitente`, `destinatario`, `mensaje`, `fecha`) V
 -- --------------------------------------------------------
 
 --
--- Estructura de tabla para la tabla `modalidad`
+-- Table structure for table `modalidad`
 --
 
 CREATE TABLE `modalidad` (
@@ -437,7 +497,7 @@ CREATE TABLE `modalidad` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Volcado de datos para la tabla `modalidad`
+-- Dumping data for table `modalidad`
 --
 
 INSERT INTO `modalidad` (`id`, `nombre`) VALUES
@@ -448,7 +508,7 @@ INSERT INTO `modalidad` (`id`, `nombre`) VALUES
 -- --------------------------------------------------------
 
 --
--- Estructura de tabla para la tabla `notas`
+-- Table structure for table `notas`
 --
 
 CREATE TABLE `notas` (
@@ -467,7 +527,7 @@ CREATE TABLE `notas` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Volcado de datos para la tabla `notas`
+-- Dumping data for table `notas`
 --
 
 INSERT INTO `notas` (`id`, `alumno_dni`, `year_escolar_id`, `vp_c1`, `int_c1`, `vp_c2`, `cierre_anual`, `int_dic`, `int_feb`, `amp_mar`, `informe_final`, `fecha_actualizacion`) VALUES
@@ -476,7 +536,7 @@ INSERT INTO `notas` (`id`, `alumno_dni`, `year_escolar_id`, `vp_c1`, `int_c1`, `
 -- --------------------------------------------------------
 
 --
--- Estructura de tabla para la tabla `notas_detalle`
+-- Table structure for table `notas_detalle`
 --
 
 CREATE TABLE `notas_detalle` (
@@ -487,25 +547,32 @@ CREATE TABLE `notas_detalle` (
   `cuatrimestre` enum('1','2','F') NOT NULL,
   `nota_valorativa` enum('TEP','TEA','TED') DEFAULT NULL,
   `nota_numerica` decimal(4,2) DEFAULT NULL,
-  `nota_final` decimal(5,2) DEFAULT NULL,
-  `intens_diciembre` varchar(10) DEFAULT NULL,
-  `intens_febrero` varchar(10) DEFAULT NULL,
-  `intens_marzo` varchar(10) DEFAULT NULL,
   `observaciones` text DEFAULT NULL,
-  `fecha_actualizacion` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+  `nota_concepto` varchar(255) DEFAULT NULL,
+  `nota_tp` varchar(255) DEFAULT NULL,
+  `nota_examen` varchar(255) DEFAULT NULL,
+  `intens_diciembre` varchar(255) DEFAULT NULL,
+  `intens_febrero` varchar(255) DEFAULT NULL,
+  `intens_marzo` varchar(255) DEFAULT NULL,
+  `nota_final` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Volcado de datos para la tabla `notas_detalle`
+-- Dumping data for table `notas_detalle`
 --
 
-INSERT INTO `notas_detalle` (`id`, `alumno_dni`, `materia_id`, `year_escolar_id`, `cuatrimestre`, `nota_valorativa`, `nota_numerica`, `nota_final`, `intens_diciembre`, `intens_febrero`, `intens_marzo` `observaciones`, ) VALUES
-
+INSERT INTO `notas_detalle` (`id`, `alumno_dni`, `materia_id`, `year_escolar_id`, `cuatrimestre`, `nota_valorativa`, `nota_numerica`, `observaciones`, `intens_diciembre`, `intens_febrero`, `intens_marzo`, `nota_final`) VALUES
+(135, 98765432, 1, 1, '1', 'TEA', 7.00, NULL, NULL, NULL, NULL, NULL),
+(136, 98765432, 1, 1, '2', 'TEA', 7.00, NULL, NULL, NULL, NULL, NULL),
+(147, 98765432, 85, 1, '1', 'TEA', 8.00, 'Buen Alumno', NULL, NULL, NULL, NULL),
+(148, 98765432, 85, 1, '2', 'TEA', 10.00, 'Buen Alumno', NULL, NULL, NULL, '9'),
+(151, 23456789, 85, 1, '1', 'TEA', 10.00, 'xd', 'TEA', 'TEA', 'TEA', NULL),
+(152, 23456789, 85, 1, '2', 'TEA', 8.00, 'xd', 'TEA', 'TEA', 'TEA', '9');
 
 -- --------------------------------------------------------
 
---  
--- Estructura de tabla para la tabla `preceptor_curso`
+--
+-- Table structure for table `preceptor_curso`
 --
 
 CREATE TABLE `preceptor_curso` (
@@ -516,7 +583,7 @@ CREATE TABLE `preceptor_curso` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Volcado de datos para la tabla `preceptor_curso`
+-- Dumping data for table `preceptor_curso`
 --
 
 INSERT INTO `preceptor_curso` (`id`, `preceptor_dni`, `curso_id`, `year_escolar_id`) VALUES
@@ -525,39 +592,44 @@ INSERT INTO `preceptor_curso` (`id`, `preceptor_dni`, `curso_id`, `year_escolar_
 -- --------------------------------------------------------
 
 --
--- Estructura de tabla para la tabla `usuarios`
+-- Table structure for table `usuarios`
 --
 
 CREATE TABLE `usuarios` (
   `dni` int(10) UNSIGNED NOT NULL,
   `password` varchar(100) NOT NULL,
   `nombre` varchar(100) NOT NULL,
-  `rol` varchar(20) NOT NULL,
+  `telefono` varchar(30) DEFAULT NULL,
+  `rol` enum('root','admin','directivo','jefe_preceptores','jefe_area','jefe_taller','jefe_departamento','preceptor','profesor','familia') NOT NULL DEFAULT 'familia',
   `password_changed` tinyint(1) NOT NULL DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Volcado de datos para la tabla `usuarios`
+-- Dumping data for table `usuarios`
 --
 
-INSERT INTO `usuarios` (`dni`, `password`, `nombre`, `rol`) VALUES
-(111222, '$2y$10$05E4O6PLhtyGkrWFekaqk.cT4N3kEXn4LfKnzov3AHxHiz3.oRpQ2', 'Juan Perez', 'alumno'),
-(11222333, '$2y$10$T0D20A88QBWOP6I0tKVawu/PmnOXeIorDjVTzuto5x2ad0XmE3E7u', 'Alumno Test', 'alumno'),
-(12345678, '$2y$10$psRHcBiA4drXMhPsWD7RY.AdXJaHXR4QF9qE65v7jZm5um5333tLa', 'Luis Gimenez', 'alumno'),
-(23456789, '$2y$10$WOcyXTIr.iMxg8/nyfQuz.XNqLnGfVqe6V.SkI11ZPKZP2/XuV0a2', 'Juan Perez', 'alumno'),
-(33222111, '$2y$10$StA67hbrEde9Nm2jLqejOeUR73kd4VNnPEsmrCvZWrURShxeYvzCC', 'Profesor Test', 'profesor'),
-(44444444, '$2y$10$C8ZLC0649JEqC074nhyWQ.w4IFahUxs5CIDDDM4MfTyKPrILGjfIu', '', 'alumno'),
-(44555666, '$2y$10$BoT4.zI3hGDhXijdLo42VO29hIaPo1eBSDfaagcIEMMpBOMGs7khW', 'Directivo Test', 'directivo'),
-(45262626, '$2y$10$StpIFFbMY7c1Uxh2Q4nENu5DLQMInn1kdXBsDGvzCwrJCM/U1Pw8S', 'franco mrak', 'alumno'),
-(48062924, '$2y$10$xVm9X83NXFaCfOgvo9iUrOQZU4xHtDa7xd9aSmeS/UIY3dOch2zRC', '', 'alumno'),
-(77888999, '$2y$10$/27m5P6CxPk.sMBC5G3g3.5Afuw/ZV3V2ZEDigET3p75BHThevkW.', 'Familia Test', 'familia'),
-(98765432, '$2y$10$G/yYSdutYigg.Ih5AyMcZ.YGE0Ieow6jD3F2dGXuu5ocrnWGYMllW', 'Ramon Cruz', 'alumno'),
-(99888777, '$2y$10$36vu3LWD6TBetD3y8ONqNue3gxc66WyXYkq8AXTWal4tZ9sAzO6G.', 'Preceptor Test', 'preceptor');
+INSERT INTO `usuarios` (`dni`, `password`, `nombre`, `telefono`, `rol`, `password_changed`) VALUES
+(0, '$2y$10$U5KOvgOlOpqyzApmHkDAUOS4Zts0qJbDgnQe9JKLC3u1upzk3/uSa', 'Administrador Root', NULL, 'root', 1),
+(111222, '$2y$10$05E4O6PLhtyGkrWFekaqk.cT4N3kEXn4LfKnzov3AHxHiz3.oRpQ2', 'Juan Perez', NULL, '', 1),
+(11222333, '$2y$10$T0D20A88QBWOP6I0tKVawu/PmnOXeIorDjVTzuto5x2ad0XmE3E7u', 'Alumno Test', NULL, '', 1),
+(12345678, '$2y$10$psRHcBiA4drXMhPsWD7RY.AdXJaHXR4QF9qE65v7jZm5um5333tLa', 'Luis Gimenez', NULL, '', 1),
+(23456789, '$2y$10$WOcyXTIr.iMxg8/nyfQuz.XNqLnGfVqe6V.SkI11ZPKZP2/XuV0a2', 'Juan Perez', NULL, '', 1),
+(33222111, '$2y$10$aCPn3UXPEmpxzTRLplOyAOMExmo/8EfrA8gwzSyIhGUI0lTOn36qa', 'Profesor Test', NULL, 'profesor', 1),
+(44444444, '$2y$10$C8ZLC0649JEqC074nhyWQ.w4IFahUxs5CIDDDM4MfTyKPrILGjfIu', '', NULL, '', 1),
+(44555666, '$2y$10$BoT4.zI3hGDhXijdLo42VO29hIaPo1eBSDfaagcIEMMpBOMGs7khW', 'Directivo Test', '113234546', 'directivo', 1),
+(45262626, '$2y$10$StpIFFbMY7c1Uxh2Q4nENu5DLQMInn1kdXBsDGvzCwrJCM/U1Pw8S', 'franco mrak', NULL, '', 1),
+(45968685, '$2y$10$RWNsRiClG7ghVFZNdHK/c.SNdQFwW4UIxCHRgtU5NSOZi9HE3MkPW', 'azzaro y duka', NULL, 'admin', 1),
+(45968687, '$2y$10$RCCq1zJo5F2D408KioLpGeLBC7k5h6/JgpCve/haSkjFJAQ9iMnw2', 'luquita rodrigue', NULL, 'directivo', 1),
+(48062924, '$2y$10$xVm9X83NXFaCfOgvo9iUrOQZU4xHtDa7xd9aSmeS/UIY3dOch2zRC', '', NULL, '', 1),
+(77888999, '$2y$10$/27m5P6CxPk.sMBC5G3g3.5Afuw/ZV3V2ZEDigET3p75BHThevkW.', 'Familia Test', NULL, 'familia', 1),
+(98765432, '$2y$10$G/yYSdutYigg.Ih5AyMcZ.YGE0Ieow6jD3F2dGXuu5ocrnWGYMllW', 'Ramon Cruz', NULL, '', 1),
+(99888777, '$2y$10$jNeDlZHraV2.bwVXIoyAu.x0Mrr.CfUXY5Ek/luKUZI6Bm4MzaOm.', 'Preceptor Test', NULL, 'preceptor', 1),
+(4294967295, '$2y$10$EOwGBHyU1LBGqIzncw.nAeoeWHu5jYUjl2vLwBrAYVkF/KX3FCW.a', 'gfagadfahgah', NULL, '', 1);
 
 -- --------------------------------------------------------
 
 --
--- Estructura de tabla para la tabla `year_escolar`
+-- Table structure for table `year_escolar`
 --
 
 CREATE TABLE `year_escolar` (
@@ -566,24 +638,24 @@ CREATE TABLE `year_escolar` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Volcado de datos para la tabla `year_escolar`
+-- Dumping data for table `year_escolar`
 --
 
 INSERT INTO `year_escolar` (`id`, `year`) VALUES
 (1, 2025);
 
 --
--- Índices para tablas volcadas
+-- Indexes for dumped tables
 --
 
 --
--- Indices de la tabla `alumnos`
+-- Indexes for table `alumnos`
 --
 ALTER TABLE `alumnos`
   ADD PRIMARY KEY (`alumno_dni`);
 
 --
--- Indices de la tabla `asignado_alumno`
+-- Indexes for table `asignado_alumno`
 --
 ALTER TABLE `asignado_alumno`
   ADD PRIMARY KEY (`id`),
@@ -592,7 +664,7 @@ ALTER TABLE `asignado_alumno`
   ADD KEY `year_escolar_id` (`year_escolar_id`);
 
 --
--- Indices de la tabla `asignado_profesor`
+-- Indexes for table `asignado_profesor`
 --
 ALTER TABLE `asignado_profesor`
   ADD PRIMARY KEY (`id`),
@@ -600,14 +672,14 @@ ALTER TABLE `asignado_profesor`
   ADD KEY `fk_ap_my` (`materias_year_id`);
 
 --
--- Indices de la tabla `asistencia`
+-- Indexes for table `asistencia`
 --
 ALTER TABLE `asistencia`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `uq_asistencia_alumno_fecha` (`alumno_dni`,`fecha`);
 
 --
--- Indices de la tabla `curso`
+-- Indexes for table `curso`
 --
 ALTER TABLE `curso`
   ADD PRIMARY KEY (`id`),
@@ -616,13 +688,13 @@ ALTER TABLE `curso`
   ADD KEY `modalidad_id` (`modalidad_id`);
 
 --
--- Indices de la tabla `curso_division`
+-- Indexes for table `curso_division`
 --
 ALTER TABLE `curso_division`
   ADD PRIMARY KEY (`id`);
 
 --
--- Indices de la tabla `curso_materia`
+-- Indexes for table `curso_materia`
 --
 ALTER TABLE `curso_materia`
   ADD PRIMARY KEY (`id`),
@@ -632,13 +704,13 @@ ALTER TABLE `curso_materia`
   ADD KEY `idx_cm_year` (`year_escolar_id`);
 
 --
--- Indices de la tabla `curso_year`
+-- Indexes for table `curso_year`
 --
 ALTER TABLE `curso_year`
   ADD PRIMARY KEY (`id`);
 
 --
--- Indices de la tabla `docente_materia_curso`
+-- Indexes for table `docente_materia_curso`
 --
 ALTER TABLE `docente_materia_curso`
   ADD PRIMARY KEY (`id`),
@@ -646,27 +718,26 @@ ALTER TABLE `docente_materia_curso`
   ADD KEY `idx_dmc_cm` (`curso_materia_id`);
 
 --
--- Indices de la tabla `familia_alumno`
+-- Indexes for table `familia_alumno`
 --
 ALTER TABLE `familia_alumno`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `uq_familia_alumno` (`familia_dni`,`alumno_dni`),
-  ADD KEY `fk_fa_alumno` (`alumno_dni`);
+  ADD UNIQUE KEY `uq_fa` (`familia_dni`,`alumno_dni`);
 
 --
--- Indices de la tabla `foro`
+-- Indexes for table `foro`
 --
 ALTER TABLE `foro`
   ADD PRIMARY KEY (`id`);
 
 --
--- Indices de la tabla `materias`
+-- Indexes for table `materias`
 --
 ALTER TABLE `materias`
   ADD PRIMARY KEY (`id`);
 
 --
--- Indices de la tabla `materias_year`
+-- Indexes for table `materias_year`
 --
 ALTER TABLE `materias_year`
   ADD PRIMARY KEY (`id`),
@@ -676,7 +747,7 @@ ALTER TABLE `materias_year`
   ADD KEY `fk_my_modalidad` (`modalidad_id`);
 
 --
--- Indices de la tabla `mensajes`
+-- Indexes for table `mensajes`
 --
 ALTER TABLE `mensajes`
   ADD PRIMARY KEY (`id`),
@@ -684,20 +755,20 @@ ALTER TABLE `mensajes`
   ADD KEY `destinatario` (`destinatario`);
 
 --
--- Indices de la tabla `modalidad`
+-- Indexes for table `modalidad`
 --
 ALTER TABLE `modalidad`
   ADD PRIMARY KEY (`id`);
 
 --
--- Indices de la tabla `notas`
+-- Indexes for table `notas`
 --
 ALTER TABLE `notas`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `uq_alumno_year` (`alumno_dni`,`year_escolar_id`);
 
 --
--- Indices de la tabla `notas_detalle`
+-- Indexes for table `notas_detalle`
 --
 ALTER TABLE `notas_detalle`
   ADD PRIMARY KEY (`id`),
@@ -706,7 +777,7 @@ ALTER TABLE `notas_detalle`
   ADD KEY `fk_notas_year` (`year_escolar_id`);
 
 --
--- Indices de la tabla `preceptor_curso`
+-- Indexes for table `preceptor_curso`
 --
 ALTER TABLE `preceptor_curso`
   ADD PRIMARY KEY (`id`),
@@ -715,7 +786,7 @@ ALTER TABLE `preceptor_curso`
   ADD KEY `year_escolar_id` (`year_escolar_id`);
 
 --
--- Indices de la tabla `usuarios`
+-- Indexes for table `usuarios`
 --
 ALTER TABLE `usuarios`
   ADD PRIMARY KEY (`dni`),
@@ -723,151 +794,143 @@ ALTER TABLE `usuarios`
   ADD UNIQUE KEY `uq_dni` (`dni`);
 
 --
--- Indices de la tabla `year_escolar`
+-- Indexes for table `year_escolar`
 --
 ALTER TABLE `year_escolar`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `year` (`year`);
 
 --
--- AUTO_INCREMENT de las tablas volcadas
+-- AUTO_INCREMENT for dumped tables
 --
 
 --
--- AUTO_INCREMENT de la tabla `asignado_alumno`
+-- AUTO_INCREMENT for table `asignado_alumno`
 --
 ALTER TABLE `asignado_alumno`
   MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
--- AUTO_INCREMENT de la tabla `asignado_profesor`
+-- AUTO_INCREMENT for table `asignado_profesor`
 --
 ALTER TABLE `asignado_profesor`
   MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
--- AUTO_INCREMENT de la tabla `asistencia`
+-- AUTO_INCREMENT for table `asistencia`
 --
 ALTER TABLE `asistencia`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=84;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=580;
 
 --
--- AUTO_INCREMENT de la tabla `curso`
+-- AUTO_INCREMENT for table `curso`
 --
 ALTER TABLE `curso`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=99;
 
 --
--- AUTO_INCREMENT de la tabla `curso_division`
+-- AUTO_INCREMENT for table `curso_division`
 --
 ALTER TABLE `curso_division`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
--- AUTO_INCREMENT de la tabla `curso_materia`
+-- AUTO_INCREMENT for table `curso_materia`
 --
 ALTER TABLE `curso_materia`
   MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
--- AUTO_INCREMENT de la tabla `curso_year`
+-- AUTO_INCREMENT for table `curso_year`
 --
 ALTER TABLE `curso_year`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
--- AUTO_INCREMENT de la tabla `docente_materia_curso`
+-- AUTO_INCREMENT for table `docente_materia_curso`
 --
 ALTER TABLE `docente_materia_curso`
   MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
--- AUTO_INCREMENT de la tabla `familia_alumno`
+-- AUTO_INCREMENT for table `familia_alumno`
 --
 ALTER TABLE `familia_alumno`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
--- AUTO_INCREMENT de la tabla `foro`
+-- AUTO_INCREMENT for table `foro`
 --
 ALTER TABLE `foro`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=18;
 
 --
--- AUTO_INCREMENT de la tabla `materias`
+-- AUTO_INCREMENT for table `materias`
 --
 ALTER TABLE `materias`
   MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=101;
 
 --
--- AUTO_INCREMENT de la tabla `materias_year`
+-- AUTO_INCREMENT for table `materias_year`
 --
 ALTER TABLE `materias_year`
   MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
--- AUTO_INCREMENT de la tabla `mensajes`
+-- AUTO_INCREMENT for table `mensajes`
 --
 ALTER TABLE `mensajes`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=86;
 
 --
--- AUTO_INCREMENT de la tabla `modalidad`
+-- AUTO_INCREMENT for table `modalidad`
 --
 ALTER TABLE `modalidad`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
--- AUTO_INCREMENT de la tabla `notas`
+-- AUTO_INCREMENT for table `notas`
 --
 ALTER TABLE `notas`
   MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
--- AUTO_INCREMENT de la tabla `notas_detalle`
+-- AUTO_INCREMENT for table `notas_detalle`
 --
 ALTER TABLE `notas_detalle`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=151;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=159;
 
 --
--- AUTO_INCREMENT de la tabla `preceptor_curso`
+-- AUTO_INCREMENT for table `preceptor_curso`
 --
 ALTER TABLE `preceptor_curso`
   MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
--- AUTO_INCREMENT de la tabla `year_escolar`
+-- AUTO_INCREMENT for table `year_escolar`
 --
 ALTER TABLE `year_escolar`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
--- Restricciones para tablas volcadas
+-- Constraints for dumped tables
 --
 
 --
--- Filtros para la tabla `alumnos`
---
-ALTER TABLE `alumnos`
-  ADD CONSTRAINT `fk_alumnos_usuario` FOREIGN KEY (`alumno_dni`) REFERENCES `usuarios` (`dni`) ON DELETE CASCADE;
-
---
--- Filtros para la tabla `asignado_alumno`
+-- Constraints for table `asignado_alumno`
 --
 ALTER TABLE `asignado_alumno`
-  ADD CONSTRAINT `asignado_alumno_ibfk_1` FOREIGN KEY (`alumno_dni`) REFERENCES `alumnos` (`alumno_dni`),
   ADD CONSTRAINT `asignado_alumno_ibfk_2` FOREIGN KEY (`curso_id`) REFERENCES `curso` (`id`),
   ADD CONSTRAINT `asignado_alumno_ibfk_3` FOREIGN KEY (`year_escolar_id`) REFERENCES `year_escolar` (`id`);
 
 --
--- Filtros para la tabla `asignado_profesor`
+-- Constraints for table `asignado_profesor`
 --
 ALTER TABLE `asignado_profesor`
-  ADD CONSTRAINT `fk_ap_maestro` FOREIGN KEY (`maestro_dni`) REFERENCES `usuarios` (`dni`),
   ADD CONSTRAINT `fk_ap_my` FOREIGN KEY (`materias_year_id`) REFERENCES `materias_year` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
--- Filtros para la tabla `curso`
+-- Constraints for table `curso`
 --
 ALTER TABLE `curso`
   ADD CONSTRAINT `curso_ibfk_1` FOREIGN KEY (`curso_year_id`) REFERENCES `curso_year` (`id`),
@@ -875,7 +938,7 @@ ALTER TABLE `curso`
   ADD CONSTRAINT `curso_ibfk_3` FOREIGN KEY (`modalidad_id`) REFERENCES `modalidad` (`id`);
 
 --
--- Filtros para la tabla `curso_materia`
+-- Constraints for table `curso_materia`
 --
 ALTER TABLE `curso_materia`
   ADD CONSTRAINT `fk_cm_curso` FOREIGN KEY (`curso_id`) REFERENCES `curso` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
@@ -883,21 +946,14 @@ ALTER TABLE `curso_materia`
   ADD CONSTRAINT `fk_cm_year` FOREIGN KEY (`year_escolar_id`) REFERENCES `year_escolar` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
--- Filtros para la tabla `docente_materia_curso`
+-- Constraints for table `docente_materia_curso`
 --
 ALTER TABLE `docente_materia_curso`
   ADD CONSTRAINT `fk_dmc_cm` FOREIGN KEY (`curso_materia_id`) REFERENCES `curso_materia` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
   ADD CONSTRAINT `fk_dmc_docente` FOREIGN KEY (`maestro_dni`) REFERENCES `usuarios` (`dni`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
--- Filtros para la tabla `familia_alumno`
---
-ALTER TABLE `familia_alumno`
-  ADD CONSTRAINT `fk_fa_alumno` FOREIGN KEY (`alumno_dni`) REFERENCES `usuarios` (`dni`) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT `fk_fa_familia` FOREIGN KEY (`familia_dni`) REFERENCES `usuarios` (`dni`) ON DELETE CASCADE ON UPDATE CASCADE;
-
---
--- Filtros para la tabla `materias_year`
+-- Constraints for table `materias_year`
 --
 ALTER TABLE `materias_year`
   ADD CONSTRAINT `fk_my_modalidad` FOREIGN KEY (`modalidad_id`) REFERENCES `modalidad` (`id`),
@@ -907,7 +963,7 @@ ALTER TABLE `materias_year`
   ADD CONSTRAINT `materias_year_ibfk_4` FOREIGN KEY (`year_escolar_id`) REFERENCES `year_escolar` (`id`);
 
 --
--- Filtros para la tabla `notas_detalle`
+-- Constraints for table `notas_detalle`
 --
 ALTER TABLE `notas_detalle`
   ADD CONSTRAINT `fk_notas_alumno` FOREIGN KEY (`alumno_dni`) REFERENCES `usuarios` (`dni`) ON DELETE CASCADE ON UPDATE CASCADE,

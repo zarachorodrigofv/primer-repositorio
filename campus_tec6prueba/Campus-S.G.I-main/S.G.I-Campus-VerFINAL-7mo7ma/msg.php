@@ -1,9 +1,7 @@
 <?php
 session_start();
-if (!isset($_SESSION['usuario']) || !isset($_SESSION['rol'])) {
-  header("Location: index.html");
-  exit;
-}
+require_once __DIR__ . '/auth.php';
+requirePage('mensajeria');
 
 $usuario  = $_SESSION['usuario'];
 $rol      = strtolower($_SESSION['rol']);
@@ -38,7 +36,7 @@ if (!$yearEscolarId) {
 $cursosAlumnos = [];   // Para directivo / preceptor / profesor
 $destinatarios = [];   // Para alumno / familia / otros
 
-if (in_array($rol, ['directivo','preceptor','profesor'])) {
+if (in_array($rol, ['directivo','admin','root','preceptor'])) {
   $dniUsuario = isset($_SESSION['dni']) ? (int)$_SESSION['dni'] : 0;
 
   // ¿Existe preceptor_curso?
@@ -48,7 +46,7 @@ if (in_array($rol, ['directivo','preceptor','profesor'])) {
     $tienePreceptorCurso = true;
   }
 
-  if ($rol === 'directivo') {
+  if (in_array($rol, ['directivo','admin','root'], true)) {
     // TODOS los cursos con alumnos activos (da igual el año_escolar_id)
     $sql = "SELECT 
               c.id AS curso_id,
@@ -171,8 +169,8 @@ if (in_array($rol, ['directivo','preceptor','profesor'])) {
    2) ENVÍO DE MENSAJE
    ========================================================== */
 
-// Solo directivos y preceptores pueden enviar mensajes
-$puedeEnviar = in_array($rol, ['directivo', 'preceptor']);
+// Directivos, admins, root y preceptores pueden enviar mensajes
+$puedeEnviar = in_array($rol, ['directivo','admin','root','preceptor'], true);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   if (!$puedeEnviar) {
