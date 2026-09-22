@@ -35,13 +35,28 @@ document.addEventListener("DOMContentLoaded", () => {
 });
   
 // --- MENÚ HAMBURGUESA ---
-function openMenu() {
+function setMenuState(isOpen) {
     const overlay = document.getElementById('overlay');
-    if (overlay) overlay.classList.add('show');
+    if (!overlay) return;
+    overlay.classList.toggle('show', isOpen);
+    document.body.style.overflow = isOpen ? 'hidden' : '';
+}
+
+function openMenu() {
+    setMenuState(true);
 }
 
 function closeMenu(event) {
-    if (event && event.target.id !== 'overlay') return;
     const overlay = document.getElementById('overlay');
-    if (overlay) overlay.classList.remove('show');
+    if (!overlay) return;
+    const shouldClose = !event || event.target === overlay || event.target.id === 'overlay';
+    if (shouldClose) {
+        setMenuState(false);
+    }
 }
+
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+        closeMenu();
+    }
+});

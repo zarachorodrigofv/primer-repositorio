@@ -5,26 +5,43 @@ error_reporting(E_ALL);
 
 require __DIR__.'/config.php';
 require __DIR__.'/auth.php';
+require_once __DIR__.'/helpers_academico.php';
+require_once __DIR__.'/boletin_helpers.php';
 
 requireLogin();
 
 $user_id = $_SESSION['dni'];
 $pdo = db();
+$alumnosTieneTelefono = tablaTieneColumna($pdo, 'alumnos', 'telefono');
 
 // ── Guardar teléfono ────────────────────────────────────
 $mensajeTelefono = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_telefono'])) {
     $tel = preg_replace('/[^0-9+\- ]/', '', $_POST['telefono'] ?? '');
     $tel = substr(trim($tel), 0, 30);
-    $upd = $pdo->prepare("UPDATE usuarios SET telefono = ? WHERE dni = ?");
-    $upd->execute([$tel !== '' ? $tel : null, $user_id]);
-    $mensajeTelefono = 'ok';
+
+    if ($alumnosTieneTelefono) {
+        $upd = $pdo->prepare("UPDATE alumnos SET telefono = ? WHERE alumno_dni = ?");
+        $upd->execute([$tel !== '' ? $tel : null, $user_id]);
+        $existeAlumno = $pdo->prepare("SELECT 1 FROM alumnos WHERE alumno_dni = ?");
+        $existeAlumno->execute([$user_id]);
+        $mensajeTelefono = $existeAlumno->fetchColumn() ? 'ok' : 'sin_registro_alumno';
+    } else {
+        $mensajeTelefono = 'telefono_no_soportado';
+    }
 }
 
 // Incluir teléfono en la query
-$stmt = $pdo->prepare("SELECT COALESCE(NULLIF(TRIM(nombre), ''), CONCAT('DNI ', dni)) AS nombre, dni, rol, telefono FROM usuarios WHERE dni = ?");
+$telefonoSelect = $alumnosTieneTelefono ? 'a.telefono' : "'' AS telefono";
+$stmt = $pdo->prepare("SELECT COALESCE(NULLIF(TRIM(u.nombre), ''), CONCAT('DNI ', u.dni)) AS nombre, u.dni, u.rol, $telefonoSelect FROM usuarios u LEFT JOIN alumnos a ON a.alumno_dni = u.dni WHERE u.dni = ?");
 $stmt->execute([$user_id]);
 $user = $stmt->fetch();
+
+$boletinPorDefecto = [];
+$yearIdSesion = currentYearEscolarId($pdo);
+if ($user && in_array(strtolower((string)$user['rol']), ['familia','alumno','profesor','preceptor','directivo','admin','root'], true)) {
+    $boletinPorDefecto = obtenerBoletinAlumno($pdo, (int)$user['dni'], (int)$yearIdSesion);
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -129,6 +146,8 @@ $user = $stmt->fetch();
     <div id="datos" class="tab-pane active show">
       <?php if ($mensajeTelefono === 'ok'): ?>
         <div class="alert alert-success text-center">✅ Teléfono guardado correctamente.</div>
+      <?php elseif ($mensajeTelefono === 'telefono_no_soportado'): ?>
+        <div class="alert alert-warning text-center">⚠️ Esta instalación no tiene la columna <strong>telefono</strong> en la tabla <strong>alumnos</strong>.</div>
       <?php endif; ?>
       <ul class="list-unstyled list-border">
         <!--<li><strong>Nombre:</strong> <?php echo $user['nombre']; ?></li>-->
@@ -139,29 +158,33 @@ $user = $stmt->fetch();
         <!-- Módulo 11: Teléfono editable -->
         <li>
           <strong>Teléfono:</strong>
-          <?php if (!empty($user['telefono'])): ?>
-            <span id="telMostrado"><?php echo htmlspecialchars($user['telefono']); ?></span>
+          <?php if ($alumnosTieneTelefono): ?>
+            <?php if (!empty($user['telefono'])): ?>
+              <span id="telMostrado"><?php echo htmlspecialchars($user['telefono']); ?></span>
+            <?php else: ?>
+              <span id="telMostrado" class="text-muted">Sin registrar</span>
+            <?php endif; ?>
+            <button type="button" class="btn btn-sm btn-outline-secondary ms-2" id="btnEditarTel"
+                    onclick="document.getElementById('formTelefono').style.display='block';this.style.display='none';">
+              ✏️ Editar
+            </button>
+            <form id="formTelefono" method="POST" style="display:none;margin-top:8px;">
+              <div class="input-group" style="max-width:320px;">
+                <input type="tel" name="telefono" class="form-control form-control-sm"
+                       placeholder="Ej: 11 2345 6789"
+                       value="<?php echo htmlspecialchars($user['telefono'] ?? ''); ?>"
+                       maxlength="30">
+                <button type="submit" name="guardar_telefono" class="btn btn-sm btn-primary">Guardar</button>
+                <button type="button" class="btn btn-sm btn-secondary"
+                       onclick="document.getElementById('formTelefono').style.display='none';
+                                 document.getElementById('btnEditarTel').style.display='';">
+                  Cancelar
+                </button>
+              </div>
+            </form>
           <?php else: ?>
-            <span id="telMostrado" class="text-muted">Sin registrar</span>
+            <span class="text-muted">La columna de teléfono no está disponible en esta instalación.</span>
           <?php endif; ?>
-          <button type="button" class="btn btn-sm btn-outline-secondary ms-2" id="btnEditarTel"
-                  onclick="document.getElementById('formTelefono').style.display='block';this.style.display='none';">
-            ✏️ Editar
-          </button>
-          <form id="formTelefono" method="POST" style="display:none;margin-top:8px;">
-            <div class="input-group" style="max-width:320px;">
-              <input type="tel" name="telefono" class="form-control form-control-sm"
-                     placeholder="Ej: 11 2345 6789"
-                     value="<?php echo htmlspecialchars($user['telefono'] ?? ''); ?>"
-                     maxlength="30">
-              <button type="submit" name="guardar_telefono" class="btn btn-sm btn-primary">Guardar</button>
-              <button type="button" class="btn btn-sm btn-secondary"
-                      onclick="document.getElementById('formTelefono').style.display='none';
-                               document.getElementById('btnEditarTel').style.display='';">
-                Cancelar
-              </button>
-            </div>
-          </form>
         </li>
       </ul>
     </div>
@@ -174,7 +197,34 @@ $user = $stmt->fetch();
     <!-- Boletines -->
     <div id="boletines" class="tab-pane">
       <section>
-          <p>Aquí se mostrarán pdfs de los boletines...</p>
+          <?php if (empty($boletinPorDefecto)): ?>
+              <p class="text-muted text-center">Todavía no hay boletines cargados para este ciclo lectivo.</p>
+          <?php else: ?>
+              <div class="table-responsive">
+                <table class="table table-bordered bg-white">
+                  <thead>
+                    <tr>
+                      <th>Materia</th>
+                      <th>C1</th>
+                      <th>C2</th>
+                      <th>Final</th>
+                      <th>Observaciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <?php foreach ($boletinPorDefecto as $fila): ?>
+                      <tr>
+                        <td><?= htmlspecialchars($fila['materia'] ?? '') ?></td>
+                        <td><?= htmlspecialchars((string)($fila['c1_num'] ?? $fila['c1_val'] ?? '—')) ?></td>
+                        <td><?= htmlspecialchars((string)($fila['c2_num'] ?? $fila['c2_val'] ?? '—')) ?></td>
+                        <td><?= htmlspecialchars((string)($fila['nota_final'] ?? '—')) ?></td>
+                        <td><?= htmlspecialchars($fila['observaciones'] ?? '') ?></td>
+                      </tr>
+                    <?php endforeach; ?>
+                  </tbody>
+                </table>
+              </div>
+          <?php endif; ?>
       </section>
     </div>
 

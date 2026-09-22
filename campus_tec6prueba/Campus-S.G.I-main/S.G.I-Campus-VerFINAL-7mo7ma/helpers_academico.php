@@ -4,15 +4,6 @@ require_once 'config.php';
 require_once 'auth.php';
 
 /**
- * Devuelve el id del año escolar actual (el último cargado en year_escolar).
- */
-function currentYearEscolarId(PDO $pdo): int {
-    $stmt = $pdo->query("SELECT id FROM year_escolar ORDER BY year DESC LIMIT 1");
-    $id = $stmt->fetchColumn();
-    return $id ? (int)$id : 1;
-}
-
-/**
  * Mapea una fila de modalidad a una clave interna: cb / maderero / maquinaria.
  * Ciclo Básico viene con modalidad_id NULL en la tabla curso.
  */

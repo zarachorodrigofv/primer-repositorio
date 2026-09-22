@@ -148,7 +148,7 @@ $cursoLabel = htmlspecialchars($infoCurso['year'] . ' ' . $infoCurso['division']
       <?php foreach ($materias as $m): ?>
 <div class="card"
   <?php if (in_array($rol, ['profesor','preceptor','directivo','admin','root'], true)): ?>
-    onclick="location.href='notas_curso.php?curso_id=<?= $cursoId; ?>&materia_id=<?= (int)$m['id']; ?>'"
+    onclick="location.href='infoacademica.php?curso_id=<?= $cursoId; ?>&materia_id=<?= (int)$m['id']; ?>'"
   <?php endif; ?>
 >
 

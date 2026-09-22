@@ -43,25 +43,10 @@ if ($hijoDni) {
     $stmt->execute([$hijoDni]);
     $alumnoInfo = $stmt->fetch();
 
-    // Boletín: solo notas ya guardadas por la escuela.
+    // Boletín: usa la misma fuente que la pantalla académica oficial.
+    require_once __DIR__ . '/boletin_helpers.php';
     $yearIdFamilia = currentYearEscolarId($pdo);
-    $stmt = $pdo->prepare(
-        "SELECT m.nombre AS materia,
-                MAX(CASE WHEN nd.cuatrimestre='1' THEN nd.nota_valorativa END) AS c1_val,
-                MAX(CASE WHEN nd.cuatrimestre='1' THEN nd.nota_numerica END) AS c1_num,
-                MAX(CASE WHEN nd.cuatrimestre='2' THEN nd.nota_valorativa END) AS c2_val,
-                MAX(CASE WHEN nd.cuatrimestre='2' THEN nd.nota_numerica END) AS c2_num,
-                MAX(CASE WHEN nd.cuatrimestre='2' THEN nd.nota_final END) AS nota_final,
-                MAX(CASE WHEN nd.cuatrimestre='2' THEN nd.observaciones END) AS observaciones
-         FROM notas_detalle nd
-         JOIN materias m ON m.id = nd.materia_id
-         WHERE nd.alumno_dni = ?
-           AND nd.year_escolar_id = ?
-         GROUP BY nd.materia_id, m.nombre
-         ORDER BY m.nombre"
-    );
-    $stmt->execute([$hijoDni, $yearIdFamilia]);
-    $notas = $stmt->fetchAll();
+    $notas = obtenerBoletinAlumno($pdo, (int)$hijoDni, (int)$yearIdFamilia);
 
     // Asistencia del mes actual
     $mesActual = date('Y-m');

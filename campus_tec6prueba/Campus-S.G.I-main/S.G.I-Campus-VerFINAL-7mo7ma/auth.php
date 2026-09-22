@@ -15,7 +15,7 @@ const ROLES_MENSAJERIA = ['root','admin','directivo','preceptor'];
 const ROLES_FORO = ['root','admin','directivo','preceptor'];
 const ROLES_MATERIAS = ['root','admin','directivo','profesor','preceptor'];
 const ROLES_NOTAS = ['root','admin','directivo','profesor','preceptor'];
-const ROLES_INFO = ['root','admin','directivo'];
+const ROLES_INFO = ['root','admin','directivo','preceptor'];
 const ROLES_CONTACTOS = ['root','admin','directivo'];
 
 /* Capacidades de escritura. Las vistas pueden ocultar controles, pero estas
@@ -28,6 +28,22 @@ const CAP_NOTAS = ['root','admin','directivo','preceptor','profesor'];
 
 function currentRole(): string {
     return strtolower(trim($_SESSION['rol'] ?? ''));
+}
+
+if (!function_exists('tablaTieneColumna')) {
+    function tablaTieneColumna(PDO $pdo, string $tabla, string $columna): bool {
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?");
+        $stmt->execute([$tabla, $columna]);
+        return (int)$stmt->fetchColumn() > 0;
+    }
+}
+
+if (!function_exists('currentYearEscolarId')) {
+    function currentYearEscolarId(PDO $pdo): int {
+        $stmt = $pdo->query("SELECT id FROM year_escolar ORDER BY `year` DESC LIMIT 1");
+        $id = $stmt ? $stmt->fetchColumn() : false;
+        return $id ? (int)$id : 1;
+    }
 }
 
 function hasRole(string ...$roles): bool {

@@ -6,13 +6,13 @@ error_reporting(E_ALL);
 require __DIR__.'/config.php';
 require __DIR__.'/auth.php';
 require_once __DIR__ . '/auth.php';
-requirePage('info');
+requirePage('notas');
 
 $pdo = db();
 $rol = strtolower(trim($_SESSION['rol'] ?? ''));
 
 // quién puede editar
-$soloLectura = !in_array($rol, ROLES_INFO, true);
+$soloLectura = !in_array($rol, ROLES_NOTAS, true);
 
 // año lectivo activo (el más alto)
 $yearRow = $pdo->query("SELECT id, `year` FROM year_escolar ORDER BY `year` DESC LIMIT 1")->fetch();
@@ -302,7 +302,7 @@ if ($rol === 'profesor') {
   <!-- Chat flotante -->
   <a href="msg.php"><button id="boton-flotante">💬</button></a>
 
- <script src="/js/main.js"></script>
+ <script src="js/main.js"></script>
 <script>
 window.APP_USER_NAME = "<?=htmlspecialchars($_SESSION['usuario'] ?? 'Usuario');?>";
 
@@ -318,6 +318,9 @@ const selCurso      = document.getElementById("selCurso");
 const selMateria    = document.getElementById("selMateria");
 const alerta        = document.getElementById("alerta");
 const panelNotas    = document.getElementById("panelNotas");
+const queryParams   = new URLSearchParams(window.location.search);
+const initialCursoId = queryParams.get('curso_id');
+const initialMateriaId = queryParams.get('materia_id');
     
 let bloqueado = SOLO_LECTURA;          // alumno/familia: lectura; prof/preceptor/directivo: editable
 if (bloquearBtn) bloquearBtn.textContent = bloqueado ? "🔒" : "🔓";
@@ -642,8 +645,17 @@ if (selMateria){
   selMateria.addEventListener('change', cargarAlumnosNotas);
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   lockUnlockTable(); // aplica estado bloqueado inicial
+
+  if (initialCursoId) {
+    selCurso.value = initialCursoId;
+    await cargarMaterias(initialCursoId);
+    if (initialMateriaId) {
+      selMateria.value = initialMateriaId;
+      await cargarAlumnosNotas();
+    }
+  }
 });
 </script>
 
