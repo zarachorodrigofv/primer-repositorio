@@ -565,6 +565,21 @@ $nombreUsuario = $_SESSION['usuario'] ?? 'Usuario';
       </div>
       <?php endif; ?>
 
+      <?php if (in_array($rol, ['root','admin','directivo','preceptor'], true)): ?>
+      <div class="card">
+        <h3>➕ Agregar familiar</h3>
+        <form onsubmit="return agregarUsuarioPanel('familia', this);">
+          <label>Nombre completo:</label>
+          <input type="text" name="nombre" required placeholder="Apellido y nombre">
+          <label>DNI:</label>
+          <input type="text" name="dni" required inputmode="numeric" placeholder="DNI">
+          <label>Contraseña inicial (opcional):</label>
+          <input type="password" name="password" placeholder="Se generará Fam1234 si queda vacío">
+          <button type="submit" class="btn">Crear familiar</button>
+        </form>
+      </div>
+      <?php endif; ?>
+
 
       <?php if ($puedeVincularFamilia): ?>
       <!-- CARD 3: vincular familia con alumno -->
