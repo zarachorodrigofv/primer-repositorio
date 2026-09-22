@@ -894,7 +894,7 @@ function destinoLegible($post, $cursosMap) {
 <!-- BOTÓN CHAT -->
 <a href="msg.php"><button id="boton-flotante">💬</button></a>
 
-<script src="/js/main.js"></script>
+<script src="js/main.js"></script>
 <script>
 const csrfTokenForo = <?= json_encode(csrfToken()) ?>;
 const fetchForoSeguro = window.fetch.bind(window);

@@ -152,6 +152,6 @@ function tieneMod(array $mods, string $key): bool {
 <script>
   window.APP_USER_NAME = "<?= htmlspecialchars($usuario ?: 'Usuario'); ?>";
 </script>
-<script src="/js/main.js"></script>
+<script src="js/main.js"></script>
 </body>
 </html>

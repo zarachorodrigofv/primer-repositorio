@@ -640,7 +640,7 @@ footer { text-align:center; padding:10px; margin-top:20px; font-weight:bold; fon
 <footer>
 <p>&copy; SGI</p>
 </footer>
-<script src="/js/main.js"></script>
+<script src="js/main.js"></script>
 <script>
 const csrfToken = <?= json_encode(csrfToken()) ?>;
 const fetchSeguro = window.fetch.bind(window);
