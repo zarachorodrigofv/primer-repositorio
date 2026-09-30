@@ -12,11 +12,17 @@ if (!in_array($rol, ROLES_LISTADO, true)) {
 }
 $pdo = db();
 
-// ========= Año lectivo activo (último) =========
-$yearRow = $pdo->query("SELECT id FROM year_escolar ORDER BY `year` DESC LIMIT 1")->fetch();
-$year_id = (int)($yearRow['id'] ?? 0);
+// ========= Ciclo solicitado; por defecto, el más reciente =========
+$year_id = (int)($_GET['year_id'] ?? 0);
+if ($year_id > 0) {
+  $stYear = $pdo->prepare("SELECT id FROM year_escolar WHERE id = ? LIMIT 1");
+  $stYear->execute([$year_id]);
+  $year_id = (int)($stYear->fetchColumn() ?: 0);
+} else {
+  $year_id = (int)$pdo->query("SELECT id FROM year_escolar ORDER BY `year` DESC LIMIT 1")->fetchColumn();
+}
 if (!$year_id) {
-  echo json_encode(['ok'=>false, 'msg'=>'No hay año lectivo configurado']);
+  echo json_encode(['ok'=>false, 'msg'=>'Ciclo lectivo no válido o no configurado']);
   exit;
 }
 
@@ -59,6 +65,7 @@ $curso_id = (int)($_GET['curso_id'] ?? 0);
 $sql = "
   SELECT 
     aa.alumno_dni AS dni,
+    aa.curso_id   AS curso_id,
     u.nombre      AS nombre,
     $selTel,
     $selDir,

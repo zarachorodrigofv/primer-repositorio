@@ -88,7 +88,8 @@ CREATE TABLE `curso` (
   `id` int(11) NOT NULL,
   `curso_year_id` int(11) NOT NULL,
   `curso_division_id` int(11) NOT NULL,
-  `modalidad_id` int(11) DEFAULT NULL COMMENT 'NULL = Ciclo basico/ninguna modalidad'
+  `modalidad_id` int(11) DEFAULT NULL COMMENT 'NULL = Ciclo basico/ninguna modalidad',
+  `turno` enum('mañana','tarde','vespertino') DEFAULT NULL COMMENT 'Turno del curso'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='CURSO_YEAR + CURSO_DIVISION = CURSO';
 
 -- --------------------------------------------------------

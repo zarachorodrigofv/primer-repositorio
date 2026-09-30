@@ -30,9 +30,22 @@ if (!$puedeVer) {
 
 $pdo = db();
 
-// ========= Año lectivo activo =========
-$yearRow = $pdo->query("SELECT id FROM year_escolar ORDER BY `year` DESC LIMIT 1")->fetch();
-$year_id = (int)($yearRow['id'] ?? 0);
+// El último año cargado es el actual; se puede consultar un ciclo anterior.
+$years = $pdo->query("SELECT id, `year` FROM year_escolar ORDER BY `year` DESC")->fetchAll(PDO::FETCH_ASSOC);
+$yearActualId = (int)($years[0]['id'] ?? 0);
+$year_id = isset($_GET['year_id']) ? (int)$_GET['year_id'] : $yearActualId;
+$yearRow = null;
+foreach ($years as $year) {
+  if ((int)$year['id'] === $year_id) {
+    $yearRow = $year;
+    break;
+  }
+}
+if (!$yearRow) {
+  $year_id = $yearActualId;
+  $yearRow = $years[0] ?? null;
+}
+$esCicloActual = $year_id === $yearActualId;
 // Familias y alumnos disponibles para vincular.
 // La relación familiar solo puede ser administrada por preceptor o superior.
 $familiasDisponibles = [];
@@ -489,6 +502,17 @@ footer { text-align:center; padding:10px; margin-top:20px; font-weight:bold; fon
 <div id="seccion_alumnos" class="panel-seccion activa">
   <div class="busqueda-contenedor">
     <h4>Tabla de Información de Alumnos:</h4>
+    <label for="filtro_year">Ciclo lectivo:</label>
+    <select id="filtro_year" style="padding:6px 12px;border:1px solid #313131;border-radius:4px;">
+      <?php foreach ($years as $year): ?>
+        <option value="<?= (int)$year['id'] ?>" <?= (int)$year['id'] === $year_id ? 'selected' : '' ?>>
+          <?= htmlspecialchars((string)$year['year']) ?><?= (int)$year['id'] === $yearActualId ? ' (actual)' : '' ?>
+        </option>
+      <?php endforeach; ?>
+    </select>
+    <?php if (!$esCicloActual): ?>
+      <span style="color:#92400e;font-size:13px;">Consulta histórica: edición y eliminación deshabilitadas.</span>
+    <?php endif; ?>
     <select id="filtro_curso" style="padding:6px 12px;border:1px solid #313131;border-radius:4px;">
       <option value="">Todos los cursos</option>
       <?php foreach ($cursos as $c): ?>
@@ -498,13 +522,13 @@ footer { text-align:center; padding:10px; margin-top:20px; font-weight:bold; fon
     <input type="text" id="buscador" placeholder="Buscar...">
   </div>
 
-  <?php if ($puedeAgregar): ?>
+  <?php if ($puedeAgregar && $esCicloActual): ?>
   <button id="btnAgregar" class="btn-agregar" onclick="toggleForm('formulario-alumno')">➕ Agregar Alumno</button>
   <?php endif; ?>
 
-  <?php if ($puedeAgregar): ?>
+  <?php if ($puedeAgregar && $esCicloActual): ?>
   <div id="formulario-alumno" class="formulario-usuario">
-    <select id="curso_id" style="width:calc(25% - 12px);padding:8px;border:1px solid #ccc;border-radius:4px;">
+    <select id="curso_id" name="curso_id" style="width:calc(25% - 12px);padding:8px;border:1px solid #ccc;border-radius:4px;">
       <option value="" selected disabled>Elegí un curso</option>
       <?php foreach ($cursos as $c): ?>
         <option value="<?= (int)$c['id'] ?>"><?= htmlspecialchars($c['nombre']) ?></option>
@@ -537,6 +561,22 @@ footer { text-align:center; padding:10px; margin-top:20px; font-weight:bold; fon
   <tbody id="cuerpoTabla"></tbody>
   </table>
   </main>
+
+  <?php if ($puedeAgregar && $esCicloActual): ?>
+  <dialog id="cambiarCursoDialog" style="width:min(480px,calc(100% - 32px));border:0;border-radius:8px;padding:22px;box-shadow:0 16px 48px rgba(0,0,0,.25);">
+    <form id="cambiarCursoForm">
+      <h3 style="margin:0 0 16px;">Cambiar curso del alumno</h3>
+      <input type="hidden" name="dni" id="cambiarCursoDni">
+      <p id="cambiarCursoAlumno" style="margin:0 0 12px;color:#475569;"></p>
+      <label for="cambiarCursoSelect" style="display:block;margin-bottom:6px;font-weight:600;">Curso destino</label>
+      <select id="cambiarCursoSelect" name="curso_id" required style="width:100%;padding:9px;margin-bottom:14px;border:1px solid #cbd5e1;border-radius:4px;"></select>
+      <div style="display:flex;justify-content:flex-end;gap:8px;">
+        <button type="button" id="cancelarCambioCurso" style="padding:8px 12px;">Cancelar</button>
+        <button type="submit" style="padding:8px 12px;background:#0f172a;color:#fff;border:0;border-radius:4px;">Guardar cambio</button>
+      </div>
+    </form>
+  </dialog>
+  <?php endif; ?>
 </div>
 
 <?php if (in_array($rol, ['directivo','admin','root'], true)): ?>
@@ -643,6 +683,9 @@ footer { text-align:center; padding:10px; margin-top:20px; font-weight:bold; fon
 <script src="js/main.js"></script>
 <script>
 const csrfToken = <?= json_encode(csrfToken()) ?>;
+const CICLO_EDITABLE = <?= $esCicloActual ? 'true' : 'false' ?>;
+const PUEDE_CAMBIAR_CURSO = <?= ($puedeAgregar && $esCicloActual) ? 'true' : 'false' ?>;
+const YEAR_ID_LISTADO = <?= (int)$year_id ?>;
 const fetchSeguro = window.fetch.bind(window);
 window.fetch = (url, options = {}) => {
   if ((options.method || 'GET').toUpperCase() === 'POST' && options.body instanceof FormData) {
@@ -681,10 +724,14 @@ function crearFilaAlumno(datos){
         <td>${datos.direccion}</td>
         <td>${datos.telefono}</td>
         <td class="acciones">
-            <button onclick="editarFila(this)"><i class="fas fa-edit"></i></button>
-            <button onclick="eliminarFila(this)"><i class="fas fa-trash"></i></button>
+          ${CICLO_EDITABLE ? '<button onclick="editarFila(this)"><i class="fas fa-edit"></i></button><button onclick="eliminarFila(this)"><i class="fas fa-trash"></i></button>' : ''}
+            ${PUEDE_CAMBIAR_CURSO ? '<button type="button" data-accion="cambiar-curso" title="Cambiar curso"><i class="fas fa-exchange-alt"></i> Cambiar</button>' : ''}
             <button onclick="toggleExtra(this)"><i class="fas fa-chevron-down"></i></button>
         </td>`;
+    const botonCambio = fila.querySelector('[data-accion="cambiar-curso"]');
+    if (botonCambio) {
+      botonCambio.addEventListener('click', () => abrirCambioCurso(datos));
+    }
     tbody.appendChild(fila);
 
     const filaExtra=document.createElement("tr");
@@ -714,10 +761,9 @@ function agregarAlumno(){
     return;
   }
 
-  // 👇 Tomar el curso elegido del <select>
   const sel = document.getElementById('curso_id');
   if (!sel || !sel.value) {
-    alert("Elegí un curso");
+    alert("No hay curso disponible para asignar al alumno. Pedí la asignación del curso antes de continuar.");
     return;
   }
   const curso_id = sel.value;
@@ -726,8 +772,6 @@ function agregarAlumno(){
   const form = new FormData();
   for (const k in datos) form.append(k, datos[k]);
   form.append('curso_id', curso_id); // también por POST (por si lo usás después)
-
-
   fetch('api_agregar_alumno.php?curso_id=' + encodeURIComponent(curso_id), {
       method: 'POST',
       body: form
@@ -744,7 +788,7 @@ function agregarAlumno(){
       }
 
       // Dibujamos el alumno que devolvió la API
-      crearFilaAlumno(j.alumno);
+      crearFilaAlumno({...j.alumno, cursoId: parseInt(curso_id, 10)});
 
       // Limpiamos el formulario
       document.querySelectorAll("#formulario-alumno input").forEach(i => i.value = "");
@@ -942,16 +986,18 @@ function pintarAlumnos(lista){
       telefono: a.telefono || '',
       tutor: '',
       enfermedades: '',
-      comentarios: ''
+      comentarios: '',
+      cursoId: a.curso_id
     });
   }
 }
 
 function cargarAlumnos(){
   const sel = document.getElementById('filtro_curso');
-  const params = sel && sel.value ? ('?curso_id='+encodeURIComponent(sel.value)) : '';
+  const params = new URLSearchParams({year_id: String(YEAR_ID_LISTADO)});
+  if (sel && sel.value) params.set('curso_id', sel.value);
 
-  fetch('api_listar_alumnos.php'+params, {
+  fetch('api_listar_alumnos.php?'+params.toString(), {
     credentials: 'same-origin' // envía cookies/sesión
   })
   .then(async (r) => {
@@ -979,6 +1025,51 @@ function cargarAlumnos(){
     alert('Error de red al listar alumnos');
   });
 }
+
+document.getElementById('filtro_year')?.addEventListener('change', function(){
+  window.location.href = 'lista.alumnos.php?year_id=' + encodeURIComponent(this.value);
+});
+document.getElementById('filtro_curso')?.addEventListener('change', cargarAlumnos);
+
+const cursosParaCambio = <?= json_encode(array_map(static fn($curso) => [
+  'id' => (int)$curso['id'],
+  'nombre' => $curso['nombre'],
+], $cursos), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
+const dialogoCambioCurso = document.getElementById('cambiarCursoDialog');
+const selectorCambioCurso = document.getElementById('cambiarCursoSelect');
+
+function abrirCambioCurso(alumno) {
+  if (!dialogoCambioCurso || !selectorCambioCurso) return;
+  document.getElementById('cambiarCursoDni').value = alumno.dni;
+  document.getElementById('cambiarCursoAlumno').textContent = `${alumno.nombre} (DNI ${alumno.dni})`;
+  selectorCambioCurso.replaceChildren(new Option('Elegí un curso', ''));
+  cursosParaCambio.forEach(curso => selectorCambioCurso.add(new Option(curso.nombre, curso.id)));
+  selectorCambioCurso.value = String(alumno.cursoId || '');
+  dialogoCambioCurso.showModal();
+}
+
+document.getElementById('cancelarCambioCurso')?.addEventListener('click', () => dialogoCambioCurso.close());
+document.getElementById('cambiarCursoForm')?.addEventListener('submit', async event => {
+  event.preventDefault();
+  const form = new FormData(event.currentTarget);
+  try {
+    const response = await fetch('api_cambiar_curso_alumno.php', {
+      method: 'POST',
+      body: form,
+      credentials: 'same-origin'
+    });
+    const result = await response.json();
+    if (!result.ok) {
+      alert(result.msg || 'No se pudo cambiar el curso.');
+      return;
+    }
+    dialogoCambioCurso.close();
+    cargarAlumnos();
+  } catch (error) {
+    console.error(error);
+    alert('Error de red al cambiar el curso.');
+  }
+});
 
 const profesoresIniciales = <?= json_encode($profesores) ?>;
 const preceptoresIniciales = <?= json_encode($preceptores) ?>;

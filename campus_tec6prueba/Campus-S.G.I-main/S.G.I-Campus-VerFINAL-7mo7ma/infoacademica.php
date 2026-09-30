@@ -12,13 +12,28 @@ $pdo = db();
 $rol = strtolower(trim($_SESSION['rol'] ?? ''));
 
 // quién puede editar
-$soloLectura = !in_array($rol, ROLES_NOTAS, true);
+$soloLectura = true;
 
-// año lectivo activo (el más alto)
-$yearRow = $pdo->query("SELECT id, `year` FROM year_escolar ORDER BY `year` DESC LIMIT 1")->fetch();
-$year_id = (int)($yearRow['id'] ?? 0);
-$year_actual = (int)($yearRow['year'] ?? date('Y'));
-if (!$year_id) { die('⚠️ Configurá year_escolar (no hay año activo)'); }
+// El ciclo actual es el más reciente registrado en year_escolar.
+$years = $pdo->query("SELECT id, `year` FROM year_escolar ORDER BY `year` DESC")->fetchAll(PDO::FETCH_ASSOC);
+$yearActual = $years[0] ?? null;
+if (!$yearActual) { die('⚠️ Configurá year_escolar (no hay año activo)'); }
+
+$yearActualId = (int)$yearActual['id'];
+$year_id = isset($_GET['year_id']) ? (int)$_GET['year_id'] : $yearActualId;
+$yearRow = null;
+foreach ($years as $year) {
+  if ((int)$year['id'] === $year_id) {
+    $yearRow = $year;
+    break;
+  }
+}
+if (!$yearRow) {
+  $yearRow = $yearActual;
+  $year_id = $yearActualId;
+}
+$esCicloActual = $year_id === $yearActualId;
+$soloLectura = !in_array($rol, ROLES_NOTAS, true) || !$esCicloActual;
 
 // =========================
 // Cursos según rol
@@ -187,6 +202,29 @@ if ($rol === 'profesor') {
       font-size: 12px;
       font-weight: bold;
     }
+    .seguimiento-panel {
+      margin: 22px 0;
+      padding: 18px 20px;
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-top: 4px solid #0f172a;
+      border-radius: 4px;
+      box-shadow: 0 2px 8px rgba(15,23,42,.08);
+    }
+    .seguimiento-panel[hidden] { display: none; }
+    .seguimiento-panel h2 { margin: 0 0 6px; color: #0f172a; font-size: 20px; }
+    .seguimiento-intro { margin: 0 0 16px; color: #475569; font-size: 14px; }
+    .seguimiento-alumno { margin: 18px 0 0; padding: 14px; background: #fff; border: 1px solid #dbe3ee; border-radius: 4px; }
+    .seguimiento-alumno h3 { margin: 0 0 8px; color: #0f172a; font-size: 16px; }
+    .seguimiento-materia { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(180px, .6fr) minmax(320px, 1.4fr); gap: 14px; align-items: start; padding: 12px 0; border-top: 1px solid #e2e8f0; }
+    .seguimiento-clasificacion { width: 100%; max-width: 220px; padding: 8px 10px; border: 1px solid #94a3b8; border-radius: 4px; background: #fff; color: #0f172a; }
+    .seguimiento-intento { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .seguimiento-intento input, .seguimiento-intento select { max-width: 190px; padding: 7px 9px; border: 1px solid #94a3b8; border-radius: 4px; }
+    .seguimiento-intento button, .seguimiento-guardar { padding: 8px 12px; border: 0; border-radius: 4px; background: #0f172a; color: #fff; cursor: pointer; }
+    .seguimiento-guardar { margin-top: 14px; background: #166534; }
+    .seguimiento-estado { margin-top: 5px; color: #64748b; font-size: 12px; }
+    .seguimiento-aviso { min-height: 20px; margin: 8px 0 0; color: #92400e; font-size: 13px; }
+    @media (max-width: 900px) { .seguimiento-materia { grid-template-columns: 1fr; } }
 
     /* TELEFONO ESCONDER LOGOS */
     @media (max-width: 768px) {
@@ -206,7 +244,7 @@ if ($rol === 'profesor') {
       </a>
       <div class="title-box">
         <h1>Boletín de Calificaciones</h1>
-        <h2>Ciclo Lectivo <?= htmlspecialchars($yearRow['year']) ?></h2>
+        <h2>Ciclo Lectivo <?= htmlspecialchars((string)$yearRow['year']) ?></h2>
 
       </div>
       <img src="imagenes/logotecn6.webp" alt="E.E.S.T N°6" class="logo">
@@ -253,6 +291,15 @@ if ($rol === 'profesor') {
     <section>
       <!-- Filtros -->
       <div style="margin: 15px 0; text-align:center; display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+        <label for="selYear" style="align-self:center;font-weight:bold;">Ciclo lectivo</label>
+        <select id="selYear" style="padding:6px 12px;" aria-label="Elegir ciclo lectivo">
+          <?php foreach ($years as $year): ?>
+            <option value="<?= (int)$year['id'] ?>" <?= (int)$year['id'] === $year_id ? 'selected' : '' ?>>
+              <?= htmlspecialchars((string)$year['year']) ?><?= (int)$year['id'] === $yearActualId ? ' (actual)' : '' ?>
+            </option>
+          <?php endforeach; ?>
+        </select>
+
         <select id="selCurso" style="padding:6px 12px;">
           <option value="">Elegí curso</option>
           <?php foreach ($cursos as $c): ?>
@@ -270,6 +317,7 @@ if ($rol === 'profesor') {
         <div style="margin-bottom: 15px; text-align: center;">
           <button id="bloquearBtn" title="Bloquear" style="font-size:20px; cursor:pointer; margin-right:10px;">🔒</button>
           <button id="guardarBtn"  title="Guardar"  style="font-size:20px; cursor:pointer;">💾</button>
+          <?php if (!$esCicloActual): ?><div style="margin-top:8px;color:#92400e;">Ciclo anterior: consulta de solo lectura.</div><?php endif; ?>
         </div>
 
 <div id="contenedorTabla" style="display:none;">
@@ -294,6 +342,15 @@ if ($rol === 'profesor') {
     </tbody>
   </table>
 </div>
+      </div>
+
+      <?php if ($esCicloActual && in_array($rol, ['preceptor','directivo','admin','root'], true)): ?>
+      <section id="panelSeguimiento" class="seguimiento-panel" hidden>
+        <h2>Materias pendientes</h2>
+        <p class="seguimiento-intro">Se incluyen materias del ciclo actual y de años anteriores que todavía no se aprobaron. La nota de cada fila corresponde al ciclo de origen. Se permiten hasta cinco intensificaciones; recursar requiere cursar el ciclo completo.</p>
+        <div id="listaIntensificaciones"><p>Seleccioná un curso para consultar sus alumnos.</p></div>
+      </section>
+      <?php endif; ?>
 
     </section>
     <footer><p>&copy; S.G.I.</p></footer>
@@ -307,7 +364,8 @@ if ($rol === 'profesor') {
 window.APP_USER_NAME = "<?=htmlspecialchars($_SESSION['usuario'] ?? 'Usuario');?>";
 
 const SOLO_LECTURA = <?= $soloLectura ? 'true' : 'false' ?>;
-const YEAR_ACTUAL  = <?= (int)$yearRow['year'] ?>;
+const YEAR_ID      = <?= (int)$year_id ?>;
+const YEAR_ACTUAL_ID = <?= (int)$yearActualId ?>;
 
 const bloquearBtn   = document.getElementById("bloquearBtn");
 const guardarBtn    = document.getElementById("guardarBtn");
@@ -316,6 +374,7 @@ const tbodyNotas    = document.getElementById("tbodyNotas");
 const contTabla     = document.getElementById("contenedorTabla");
 const selCurso      = document.getElementById("selCurso");
 const selMateria    = document.getElementById("selMateria");
+const selYear       = document.getElementById("selYear");
 const alerta        = document.getElementById("alerta");
 const panelNotas    = document.getElementById("panelNotas");
 const queryParams   = new URLSearchParams(window.location.search);
@@ -495,7 +554,7 @@ async function cargarMaterias(cursoId){
   }
 
   try{
-    const r = await fetch(`api_listar_materias.php?curso_id=${encodeURIComponent(cursoId)}`, {
+    const r = await fetch(`api_listar_materias.php?curso_id=${encodeURIComponent(cursoId)}&year_id=${YEAR_ID}`, {
       credentials: 'same-origin'
     });
     const j = await r.json();
@@ -532,7 +591,7 @@ async function cargarAlumnosNotas(){
 
   try{
     const r = await fetch(
-      `api_listar_alumnos_notas.php?curso_id=${encodeURIComponent(cursoId)}&materia_id=${encodeURIComponent(materiaId)}`,
+      `api_listar_alumnos_notas.php?curso_id=${encodeURIComponent(cursoId)}&materia_id=${encodeURIComponent(materiaId)}&year_id=${YEAR_ID}`,
       { credentials: 'same-origin' }
     );
     const j = await r.json();
@@ -593,6 +652,7 @@ async function guardarNotas(){
       headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': <?= json_encode(csrfToken()) ?> },
       body: JSON.stringify({
         materia_id: parseInt(materiaId, 10),
+        year_id: YEAR_ID,
         data: rows
       })
     });
@@ -639,10 +699,220 @@ if (selCurso){
     contTabla.style.display = 'none';
     tbodyNotas.innerHTML = `<tr><td colspan="11">Seleccioná curso y materia…</td></tr>`;
     if (v) cargarMaterias(v);
+    cargarIntensificaciones();
   });
 }
 if (selMateria){
   selMateria.addEventListener('change', cargarAlumnosNotas);
+}
+if (selYear){
+  selYear.addEventListener('change', () => {
+    window.location.href = `infoacademica.php?year_id=${encodeURIComponent(selYear.value)}`;
+  });
+}
+
+const panelSeguimiento = document.getElementById('panelSeguimiento');
+const listaIntensificaciones = document.getElementById('listaIntensificaciones');
+const csrfIntensificacion = <?= json_encode(csrfToken()) ?>;
+
+function crearTexto(tag, texto, className = '') {
+  const elemento = document.createElement(tag);
+  elemento.textContent = texto;
+  if (className) elemento.className = className;
+  return elemento;
+}
+
+async function cargarIntensificaciones() {
+  if (!panelSeguimiento || !listaIntensificaciones) return;
+  const cursoId = selCurso.value;
+  panelSeguimiento.hidden = true;
+  listaIntensificaciones.replaceChildren();
+  if (!cursoId) {
+    listaIntensificaciones.appendChild(crearTexto('p', 'Seleccioná un curso para consultar sus alumnos.'));
+    return;
+  }
+
+  listaIntensificaciones.appendChild(crearTexto('p', 'Cargando materias pendientes...'));
+  try {
+    const response = await fetch(`api_listar_intensificaciones.php?curso_id=${encodeURIComponent(cursoId)}`, {credentials: 'same-origin'});
+    const result = await response.json();
+    if (!result.ok) throw new Error(result.msg || 'No se pudieron cargar las materias.');
+    if (result.habilitado === false) return;
+    panelSeguimiento.hidden = false;
+    listaIntensificaciones.replaceChildren();
+    if (!result.alumnos.length) {
+      listaIntensificaciones.appendChild(crearTexto('p', 'No hay alumnos con materias pendientes en este curso.'));
+      return;
+    }
+
+    result.alumnos.forEach(alumno => {
+      const panelAlumno = document.createElement('div');
+      panelAlumno.className = 'seguimiento-alumno';
+      panelAlumno.appendChild(crearTexto('h3', `${alumno.nombre} — DNI ${alumno.dni}`));
+      const formulario = document.createElement('div');
+      formulario.dataset.alumno = String(alumno.dni);
+      const aviso = crearTexto('p', '', 'seguimiento-aviso');
+      const actualizarLimiteIntensificaciones = () => {
+        const selectores = Array.from(formulario.querySelectorAll('[data-clasificacion]'));
+        const elegibles = selectores.filter(selector => selector.dataset.elegible === 'true');
+        const cantidad = elegibles.filter(selector => selector.value === 'intensificar').length;
+        selectores.forEach(selector => {
+          if (selector.dataset.elegible !== 'true') return;
+          const opcionIntensificar = selector.querySelector('option[value="intensificar"]');
+          if (cantidad >= 5 && selector.value !== 'intensificar' && !selector.disabled) {
+            opcionIntensificar.disabled = true;
+            if (selector.value === 'sin_clasificar') selector.value = 'recursar';
+          } else {
+            opcionIntensificar.disabled = false;
+          }
+          const materiaFila = selector.closest('.seguimiento-materia');
+          const formularioIntento = materiaFila.querySelector('.seguimiento-intento');
+          const seguimiento = alumno.materias.find(item => String(item.materia_id) === selector.dataset.materia
+            && String(item.year_id) === selector.dataset.yearOrigen);
+          formularioIntento.hidden = !(selector.value === 'intensificar' && seguimiento?.seguimiento_id);
+        });
+        aviso.textContent = cantidad >= 5
+          ? 'Límite alcanzado: las demás materias quedan para recursar el ciclo completo.'
+          : '';
+      };
+
+      alumno.materias.forEach(materia => {
+        const fila = document.createElement('div');
+        fila.className = 'seguimiento-materia';
+        const datos = document.createElement('div');
+        datos.appendChild(crearTexto('strong', materia.materia));
+        const gradoLabel = materia.grado || 'grado no identificado';
+        datos.appendChild(crearTexto('div', `${gradoLabel} · Ciclo ${materia.year_origen} · Nota/estado: ${materia.nota_origen}`, 'seguimiento-estado'));
+
+        const selectorClasificacion = document.createElement('select');
+        selectorClasificacion.className = 'seguimiento-clasificacion';
+        selectorClasificacion.dataset.clasificacion = 'true';
+        selectorClasificacion.dataset.elegible = materia.habilita_recuperacion ? 'true' : 'false';
+        selectorClasificacion.dataset.materia = String(materia.materia_id);
+        selectorClasificacion.dataset.yearOrigen = String(materia.year_id);
+        selectorClasificacion.add(new Option('Elegí una opción', 'sin_clasificar'));
+        selectorClasificacion.add(new Option('Intensificar', 'intensificar'));
+        selectorClasificacion.add(new Option('Recursar el ciclo completo', 'recursar'));
+        selectorClasificacion.value = materia.clasificacion || 'sin_clasificar';
+        selectorClasificacion.disabled = !materia.habilita_recuperacion || materia.tiene_intentos_ciclo_actual;
+        if (!materia.habilita_recuperacion) {
+          selectorClasificacion.value = 'sin_clasificar';
+          selectorClasificacion.querySelector('option[value="intensificar"]').disabled = true;
+          selectorClasificacion.querySelector('option[value="recursar"]').disabled = true;
+        }
+        datos.appendChild(selectorClasificacion);
+
+        const estadoActual = !materia.habilita_recuperacion
+          ? (materia.nivel === 1 ? 'En 1.º año no se habilita intensificación ni recursado.' : 'No se pudo identificar el grado; no se habilitan acciones.')
+          : (materia.intentos.length
+            ? materia.intentos.map(intento => `${intento.instancia} ${intento.year}: ${intento.estado.replace('_', ' ')}${intento.nota !== null ? ` (${intento.nota})` : ''}${intento.nota_valorativa ? ` ${intento.nota_valorativa}` : ''}`).join(' · ')
+            : (materia.clasificacion === 'intensificar'
+              ? 'Seleccionada para intensificar'
+              : (materia.clasificacion === 'recursar' ? 'Debe cursar la materia durante el año completo' : 'Pendiente de clasificación')));
+        datos.appendChild(crearTexto('div', estadoActual, 'seguimiento-estado'));
+
+        const intentoForm = document.createElement('form');
+        intentoForm.className = 'seguimiento-intento';
+        intentoForm.hidden = !materia.habilita_recuperacion || materia.clasificacion !== 'intensificar' || !materia.seguimiento_id;
+        const instancia = document.createElement('input');
+        instancia.type = 'text';
+        instancia.name = 'instancia';
+        instancia.maxLength = 80;
+        instancia.placeholder = 'Instancia (texto libre)';
+        instancia.required = true;
+        const nota = document.createElement('input');
+        nota.type = 'number';
+        nota.name = 'nota';
+        nota.min = '1';
+        nota.max = '10';
+        nota.step = '0.01';
+        nota.placeholder = 'Nota';
+        const valorativa = document.createElement('select');
+        valorativa.name = 'nota_valorativa';
+        valorativa.add(new Option('Sin estado', ''));
+        ['TEP', 'TEA', 'TED'].forEach(opcion => valorativa.add(new Option(opcion, opcion)));
+        const observaciones = document.createElement('input');
+        observaciones.type = 'text';
+        observaciones.name = 'observaciones';
+        observaciones.placeholder = 'Observaciones';
+        const guardarIntento = document.createElement('button');
+        guardarIntento.type = 'submit';
+        guardarIntento.textContent = 'Registrar instancia';
+        intentoForm.append(instancia, nota, valorativa, observaciones, guardarIntento);
+        intentoForm.addEventListener('submit', async event => {
+          event.preventDefault();
+          const campos = new FormData(intentoForm);
+          await guardarIntensificacion({
+            accion: 'registrar_intento',
+            alumno_dni: alumno.dni,
+            curso_id: cursoId,
+            materia_id: materia.materia_id,
+            year_origen_id: materia.year_id,
+            instancia: campos.get('instancia'),
+            nota: campos.get('nota'),
+            nota_valorativa: campos.get('nota_valorativa'),
+            observaciones: campos.get('observaciones')
+          });
+        });
+
+        selectorClasificacion.addEventListener('change', () => {
+          const intensificables = Array.from(formulario.querySelectorAll('[data-clasificacion]'))
+            .filter(selector => selector.value === 'intensificar');
+          if (intensificables.length > 5) {
+            selectorClasificacion.value = 'sin_clasificar';
+            aviso.textContent = 'El máximo permitido es cinco materias por alumno.';
+            return;
+          }
+          actualizarLimiteIntensificaciones();
+        });
+        fila.append(datos, intentoForm);
+        formulario.appendChild(fila);
+      });
+      actualizarLimiteIntensificaciones();
+
+      const guardarSeleccion = document.createElement('button');
+      guardarSeleccion.type = 'button';
+      guardarSeleccion.className = 'seguimiento-guardar';
+      guardarSeleccion.textContent = 'Guardar clasificación';
+      guardarSeleccion.addEventListener('click', async () => {
+        const clasificaciones = Array.from(formulario.querySelectorAll('[data-clasificacion]'))
+          .filter(selector => selector.dataset.elegible === 'true')
+          .map(selector => ({
+          materia_id: Number(selector.dataset.materia),
+          year_origen_id: Number(selector.dataset.yearOrigen),
+          clasificacion: selector.value
+          }));
+        await guardarIntensificacion({
+          accion: 'guardar_clasificacion',
+          alumno_dni: alumno.dni,
+          curso_id: cursoId,
+          clasificaciones
+        });
+      });
+      panelAlumno.append(formulario, aviso, guardarSeleccion);
+      listaIntensificaciones.appendChild(panelAlumno);
+    });
+  } catch (error) {
+    console.error(error);
+    listaIntensificaciones.replaceChildren(crearTexto('p', error.message, 'text-danger'));
+  }
+}
+
+async function guardarIntensificacion(payload) {
+  try {
+    const response = await fetch('api_guardar_intensificacion.php', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrfIntensificacion},
+      body: JSON.stringify(payload)
+    });
+    const result = await response.json();
+    if (!result.ok) throw new Error(result.msg || 'No se pudo guardar.');
+    await cargarIntensificaciones();
+  } catch (error) {
+    console.error(error);
+    alert(error.message || 'Error de red al guardar la intensificación.');
+  }
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -651,6 +921,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (initialCursoId) {
     selCurso.value = initialCursoId;
     await cargarMaterias(initialCursoId);
+    await cargarIntensificaciones();
     if (initialMateriaId) {
       selMateria.value = initialMateriaId;
       await cargarAlumnosNotas();

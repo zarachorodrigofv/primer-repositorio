@@ -30,6 +30,13 @@ if (!$payload) {
   exit;
 }
 
+$yearSolicitado = (int)($payload['year_id'] ?? $year_id);
+if ($yearSolicitado !== $year_id) {
+  http_response_code(403);
+  echo json_encode(['ok'=>false,'msg'=>'Solo se pueden modificar notas del ciclo lectivo actual']);
+  exit;
+}
+
 $materia_id = (int)($payload['materia_id'] ?? 0);
 $data       = $payload['data'] ?? null;
 if ($materia_id<=0 || !is_array($data)) {

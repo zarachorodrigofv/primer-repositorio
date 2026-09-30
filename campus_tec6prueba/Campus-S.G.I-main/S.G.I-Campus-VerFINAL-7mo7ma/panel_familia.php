@@ -27,10 +27,34 @@ $hijos = $stmt->fetchAll();
 // Selección de hijo
 $hijoDni = $_GET['alumno'] ?? ($hijos[0]['dni'] ?? null);
 
+// Año lectivo seleccionado para el boletín. Por defecto, se usa el más reciente
+// pero el familiar puede elegir un ciclo anterior para revisar materias pendientes.
+$yearSeleccionado = isset($_GET['year']) ? (int)$_GET['year'] : currentYearEscolarId($pdo);
+$stmtYears = $pdo->query("SELECT id, `year` FROM year_escolar ORDER BY `year` DESC");
+$years = $stmtYears->fetchAll();
+
+if (!$years) {
+  $years = [[ 'id' => $yearSeleccionado, 'year' => $yearSeleccionado ]];
+}
+
+if (!array_filter($years, fn($y) => (int)$y['id'] === $yearSeleccionado)) {
+  $yearSeleccionado = (int)($years[0]['id'] ?? currentYearEscolarId($pdo));
+}
+
+$yearSeleccionadoNombre = '';
+foreach ($years as $year) {
+    if ((int)$year['id'] === $yearSeleccionado) {
+        $yearSeleccionadoNombre = (string)$year['year'];
+        break;
+    }
+}
+
 // Datos del hijo seleccionado
 $alumnoInfo = null;
 $notas      = [];
+$materiasPendientes = [];
 $asistencia = [];
+$mostrarMateriasPendientes = false;
 
 if ($hijoDni) {
     // Verificar que el hijo pertenece a esta familia
@@ -45,8 +69,24 @@ if ($hijoDni) {
 
     // Boletín: usa la misma fuente que la pantalla académica oficial.
     require_once __DIR__ . '/boletin_helpers.php';
-    $yearIdFamilia = currentYearEscolarId($pdo);
+    $yearIdFamilia = $yearSeleccionado;
     $notas = obtenerBoletinAlumno($pdo, (int)$hijoDni, (int)$yearIdFamilia);
+    $materiasPendientes = array_values(array_filter(
+      obtenerMateriasPendientes($pdo, (int)$hijoDni, (int)$yearIdFamilia),
+      static fn($materia) => !$materia['resuelta']
+    ));
+
+    $stmtCursoHijo = $pdo->prepare(
+      "SELECT cy.year
+       FROM asignado_alumno aa
+       JOIN curso c ON c.id = aa.curso_id
+       JOIN curso_year cy ON cy.id = c.curso_year_id
+       WHERE aa.alumno_dni = ? AND aa.year_escolar_id = ? AND aa.estado = 'activo'
+       ORDER BY aa.id DESC LIMIT 1"
+    );
+    $stmtCursoHijo->execute([(int)$hijoDni, $yearIdFamilia]);
+    $gradoCicloFamilia = $stmtCursoHijo->fetchColumn();
+    $mostrarMateriasPendientes = nivelNumericoCurso($gradoCicloFamilia ?: null) >= 2;
 
     // Asistencia del mes actual
     $mesActual = date('Y-m');
@@ -142,7 +182,7 @@ $nombreUsuario = $_SESSION['usuario'] ?? 'Familia';
     <!-- Selector de hijo -->
     <div class="selector-hijos">
       <?php foreach ($hijos as $h): ?>
-        <a href="?alumno=<?php echo urlencode($h['dni']); ?>" style="text-decoration:none;">
+        <a href="?alumno=<?php echo urlencode($h['dni']); ?>&year=<?php echo urlencode((string)$yearSeleccionado); ?>" style="text-decoration:none;">
           <button class="btn-hijo <?php echo $hijoDni==$h['dni']?'activo':''; ?>">
             👤 <?php echo htmlspecialchars($h['nombre']); ?>
             <small style="display:block;font-size:11px;opacity:.7;"><?php echo htmlspecialchars($h['parentesco']); ?></small>
@@ -156,7 +196,21 @@ $nombreUsuario = $_SESSION['usuario'] ?? 'Familia';
 
     <!-- Info del alumno -->
     <div class="card">
-      <h3>👤 <?php echo htmlspecialchars($alumnoInfo['nombre']); ?></h3>
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+        <h3 style="margin:0; border:none; padding:0;">👤 <?php echo htmlspecialchars($alumnoInfo['nombre']); ?></h3>
+
+        <form method="get" style="margin:0; display:flex; align-items:center; gap:8px;">
+          <input type="hidden" name="alumno" value="<?php echo htmlspecialchars((string)$hijoDni); ?>">
+          <label for="year_selector" style="font-size:12px;color:#475569;font-weight:600;">Ciclo lectivo</label>
+          <select id="year_selector" name="year" onchange="this.form.submit()" style="padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;">
+            <?php foreach ($years as $year): ?>
+              <option value="<?php echo (int)$year['id']; ?>" <?php echo ((int)$year['id'] === $yearSeleccionado) ? 'selected' : ''; ?>>
+                <?php echo htmlspecialchars((string)$year['year']); ?>
+              </option>
+            <?php endforeach; ?>
+          </select>
+        </form>
+      </div>
       <p style="margin:0;font-size:13px;color:#64748b;">DNI: <?php echo htmlspecialchars($alumnoInfo['dni']); ?></p>
     </div>
 
@@ -192,7 +246,7 @@ $nombreUsuario = $_SESSION['usuario'] ?? 'Familia';
 
     <!-- Notas -->
     <div class="card">
-      <h3>📝 Boletín académico</h3>
+      <h3>📝 Boletín académico — <?php echo htmlspecialchars($yearSeleccionadoNombre ?: (string)$yearSeleccionado); ?></h3>
       <?php if ($notas): ?>
       <table>
         <thead><tr><th>Materia</th><th>1° Cuatr.</th><th>2° Cuatr.</th><th>Final</th><th>Observaciones</th></tr></thead>
@@ -207,7 +261,7 @@ $nombreUsuario = $_SESSION['usuario'] ?? 'Familia';
               <td><?php echo htmlspecialchars($n['materia']); ?></td>
               <td><?php echo htmlspecialchars((string)$c1); ?></td>
               <td><?php echo htmlspecialchars((string)$c2); ?></td>
-              <td class="<?php echo ($fin !== null && $fin >= 6) ? 'nota-aprobada' : (($fin !== null) ? 'nota-desaprobada' : ''); ?>">
+              <td class="<?php echo ($fin !== null && $fin >= 7) ? 'nota-aprobada' : (($fin !== null) ? 'nota-desaprobada' : ''); ?>">
                 <?php echo $fin !== null ? htmlspecialchars((string)$fin) : '—'; ?>
               </td>
               <td><?php echo htmlspecialchars($n['observaciones'] ?? ''); ?></td>
@@ -219,6 +273,51 @@ $nombreUsuario = $_SESSION['usuario'] ?? 'Familia';
         <p style="color:#94a3b8;font-size:13px;">Sin notas cargadas aún.</p>
       <?php endif; ?>
     </div>
+
+    <?php if ($mostrarMateriasPendientes): ?>
+    <div class="card">
+      <h3>Materias pendientes</h3>
+      <p style="margin:0 0 12px;color:#64748b;font-size:13px;">Se incluyen materias del ciclo actual y de años anteriores que todavía no se aprobaron.</p>
+      <?php if ($materiasPendientes): ?>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>Grado</th><th>Ciclo de origen</th><th>Materia</th><th>Nota/estado</th><th>Situación</th></tr></thead>
+          <tbody>
+            <?php foreach ($materiasPendientes as $pendiente): ?>
+              <?php
+                if ($pendiente['clasificacion'] === 'intensificar') {
+                    $situacion = $pendiente['intentos'] ? 'Intensificación registrada' : 'A intensificar';
+                } elseif ($pendiente['clasificacion'] === 'recursar') {
+                    $situacion = 'A recursar durante el ciclo completo';
+                } else {
+                    $situacion = 'Pendiente de clasificación';
+                }
+              ?>
+              <tr>
+                <td><?php echo htmlspecialchars((string)($pendiente['grado'] ?? 'Sin identificar')); ?></td>
+                <td><?php echo htmlspecialchars((string)$pendiente['year']); ?><?php echo (int)$pendiente['year'] === (int)$yearSeleccionadoNombre ? ' (actual)' : ''; ?></td>
+                <td><?php echo htmlspecialchars($pendiente['materia']); ?></td>
+                <td class="nota-desaprobada"><?php echo htmlspecialchars((string)$pendiente['nota']); ?></td>
+                <td>
+                  <?php echo htmlspecialchars($situacion); ?>
+                  <?php foreach ($pendiente['intentos'] as $intento): ?>
+                    <div style="font-size:12px;color:#64748b;">
+                      <?php echo htmlspecialchars($intento['instancia'] . ' ' . $intento['year'] . ': ' . str_replace('_', ' ', $intento['estado'])); ?>
+                      <?php if ($intento['nota'] !== null): ?> · Nota <?php echo htmlspecialchars((string)$intento['nota']); ?><?php endif; ?>
+                      <?php if ($intento['nota_valorativa']): ?> · <?php echo htmlspecialchars($intento['nota_valorativa']); ?><?php endif; ?>
+                    </div>
+                  <?php endforeach; ?>
+                </td>
+              </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+      <?php else: ?>
+        <p style="color:#166534;font-size:13px;margin:0;">No hay materias pendientes registradas.</p>
+      <?php endif; ?>
+    </div>
+    <?php endif; ?>
 
     <?php endif; ?>
   <?php endif; ?>

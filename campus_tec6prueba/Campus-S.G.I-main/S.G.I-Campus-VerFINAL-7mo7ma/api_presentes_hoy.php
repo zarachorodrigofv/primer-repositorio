@@ -11,12 +11,19 @@ $fechaParam = $_GET['fecha'] ?? '';
 $fecha = ($fechaParam && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaParam))
     ? $fechaParam
     : date('Y-m-d');
+$turno = $_GET['turno'] ?? 'todos';
+if (!in_array($turno, ['todos','mañana','tarde','vespertino'], true)) $turno = 'todos';
 
 $pdo = db();
 $rol = currentRole();
 $yearId = currentYearId($pdo);
 $filtroPreceptor = '';
+$filtroTurno = '';
 $paramsFecha = [$fecha];
+if ($turno !== 'todos') {
+    $filtroTurno = ' AND EXISTS (SELECT 1 FROM curso_turno ct WHERE ct.id=a.turno_id AND ct.turno=?)';
+    $paramsFecha[] = $turno;
+}
 if ($rol === 'preceptor') {
     $filtroPreceptor = ' AND EXISTS (SELECT 1 FROM asignado_alumno aa2 JOIN preceptor_curso pc ON pc.curso_id=aa2.curso_id AND pc.year_escolar_id=aa2.year_escolar_id WHERE aa2.alumno_dni=a.alumno_dni AND aa2.year_escolar_id=? AND aa2.estado=\'activo\' AND pc.preceptor_dni=?)';
     $paramsFecha[] = $yearId;
@@ -31,7 +38,7 @@ $stmtTotal = $pdo->prepare(
         COUNT(CASE WHEN a.estado = 'justificado' THEN 1 END) AS justificados,
         COUNT(*) AS total
      FROM asistencia a
-     WHERE a.fecha = ? $filtroPreceptor"
+     WHERE a.fecha = ? $filtroTurno $filtroPreceptor"
 );
 $stmtTotal->execute($paramsFecha);
 $general = $stmtTotal->fetch();
@@ -53,6 +60,7 @@ $stmtCursos = $pdo->prepare(
      LEFT JOIN modalidad m    ON m.id  = c.modalidad_id
      WHERE a.fecha = ?
        AND aa.estado = 'activo'
+       $filtroTurno
        $filtroPreceptor
      GROUP BY c.id
      ORDER BY cy.id, cd.id"
@@ -62,6 +70,7 @@ $cursos = $stmtCursos->fetchAll();
 
 echo json_encode([
     'fecha'   => date('d/m/Y', strtotime($fecha)),
+    'turno'   => $turno,
     'general' => $general,
     'cursos'  => $cursos,
 ]);

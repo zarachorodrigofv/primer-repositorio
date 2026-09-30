@@ -118,6 +118,22 @@ try {
     ':year'  => $year_id
   ]);
 
+    // 4) Toda inscripción activa queda asociada a los tres turnos para asistencia.
+    $stTurnos = $pdo->prepare("SELECT id, turno FROM curso_turno WHERE curso_id = :curso");
+    $stTurnos->execute([':curso' => $curso_id]);
+    $turnosDisponibles = [];
+    foreach ($stTurnos->fetchAll(PDO::FETCH_ASSOC) as $turno) {
+      $turnosDisponibles[$turno['turno']] = (int)$turno['id'];
+    }
+
+    foreach (['mañana', 'tarde', 'vespertino'] as $turnoNombre) {
+      if (!isset($turnosDisponibles[$turnoNombre])) {
+        throw new RuntimeException('Faltan turnos configurados para el curso. Ejecutá la migración de turnos.');
+      }
+      $stTurno = $pdo->prepare("INSERT IGNORE INTO asignado_alumno_turno (alumno_dni, curso_id, year_escolar_id, turno_id) VALUES (:dni,:curso,:year,:turno)");
+      $stTurno->execute([':dni'=>$dni, ':curso'=>$curso_id, ':year'=>$year_id, ':turno'=>$turnosDisponibles[$turnoNombre]]);
+    }
+
   $pdo->commit();
 
   echo json_encode([

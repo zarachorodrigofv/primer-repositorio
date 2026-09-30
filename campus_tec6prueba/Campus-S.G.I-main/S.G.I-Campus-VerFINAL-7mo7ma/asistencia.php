@@ -47,10 +47,45 @@ if (in_array($rol, ['directivo','admin','root'], true)) {
     $res = $stmt->get_result(); while ($fila = $res->fetch_assoc()) $cursos[] = $fila; $stmt->close();
 }
 
+// Turnos normalizados: un curso puede tener mañana + tarde + vespertino.
+$turnosPorCurso = [];
+if ($cursos) {
+    $ids = array_values(array_unique(array_map(fn($c)=>(int)$c['id'], $cursos)));
+    $ph = implode(',', array_fill(0, count($ids), '?'));
+    $st = $pdo->prepare("SELECT ct.curso_id, ct.id AS turno_id, ct.turno
+                         FROM curso_turno ct WHERE ct.curso_id IN ($ph)
+                         ORDER BY ct.curso_id, FIELD(ct.turno,'mañana','tarde','vespertino')");
+    $st->execute($ids);
+    while ($tr = $st->fetch(PDO::FETCH_ASSOC)) {
+        $turnosPorCurso[(int)$tr['curso_id']][] = $tr;
+    }
+    foreach ($cursos as &$c) { $c['turnos'] = $turnosPorCurso[(int)$c['id']] ?? []; }
+    unset($c);
+}
+
+// FILTRO DE TURNO
+$turnosValidos = ['todos', 'mañana', 'tarde', 'vespertino'];
+$turnoSeleccionado = isset($_REQUEST['turno']) ? (string)$_REQUEST['turno'] : 'todos';
+if (!in_array($turnoSeleccionado, $turnosValidos, true)) $turnoSeleccionado = 'todos';
+$cursosTodosTurnos = $cursos;
+if ($turnoSeleccionado !== 'todos') {
+    $cursos = array_values(array_filter($cursos, function($c) use ($turnoSeleccionado) {
+        foreach (($c['turnos'] ?? []) as $tr) if ($tr['turno'] === $turnoSeleccionado) return true;
+        return false;
+    }));
+}
+
 // PARÁMETROS
 $cursoSeleccionado = isset($_REQUEST['curso_id']) ? (int)$_REQUEST['curso_id'] : (count($cursos) ? (int)$cursos[0]['id'] : 0);
 $idsPermitidos     = array_map(fn($c) => (int)$c['id'], $cursos);
 if (!in_array($cursoSeleccionado, $idsPermitidos, true)) $cursoSeleccionado = count($cursos) ? (int)$cursos[0]['id'] : 0;
+$turnosVista = $turnosPorCurso[$cursoSeleccionado] ?? [];
+$turnoIdSeleccionado = 0;
+if ($cursoSeleccionado && $turnoSeleccionado !== 'todos') {
+    foreach ($turnosVista as $tr) {
+        if ($tr['turno'] === $turnoSeleccionado) { $turnoIdSeleccionado = (int)$tr['turno_id']; break; }
+    }
+}
 $mesSeleccionado  = isset($_REQUEST['mes'])  ? (int)$_REQUEST['mes']  : (int)date('n');
 $anioSeleccionado = isset($_REQUEST['anio']) ? (int)$_REQUEST['anio'] : (int)date('Y');
 $diaFiltro = isset($_REQUEST['dia']) && $_REQUEST['dia'] !== '' ? (int)$_REQUEST['dia'] : 0;
@@ -60,7 +95,17 @@ if ($diaFiltro < 0 || $diaFiltro > $totalDias) $diaFiltro = 0;
 // GUARDAR ASISTENCIA
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar']) && $cursoSeleccionado) {
     requireCsrf();
-    if (isset($_POST['estado']) && is_array($_POST['estado'])) {
+    $turnosGuardar = [];
+    if ($turnoSeleccionado === 'todos') {
+        foreach ($turnosVista as $tr) {
+            $turnoId = (int)$tr['turno_id'];
+            if ($turnoId > 0) $turnosGuardar[] = $turnoId;
+        }
+    } elseif ($turnoIdSeleccionado > 0) {
+        $turnosGuardar[] = $turnoIdSeleccionado;
+    }
+
+    if (!empty($turnosGuardar) && isset($_POST['estado']) && is_array($_POST['estado'])) {
         foreach ($_POST['estado'] as $dniAlumno => $dias) {
             $dniAlumno = (int)$dniAlumno;
             foreach ($dias as $dia => $estado) {
@@ -68,28 +113,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar']) && $cursoS
                 $estado = in_array($estado, ['presente','ausente','tarde','justificado'], true) ? $estado : '';
                 $fecha  = sprintf('%04d-%02d-%02d', $anioSeleccionado, $mesSeleccionado, $dia);
 
-                // Seguridad: el DNI debe pertenecer al curso seleccionado.
-                $chkAl = $conn->prepare("SELECT 1 FROM asignado_alumno WHERE alumno_dni=? AND curso_id=? AND year_escolar_id=? AND estado='activo' LIMIT 1");
-                $chkAl->bind_param("iii", $dniAlumno, $cursoSeleccionado, $yearEscolarId);
-                $chkAl->execute();
-                $tieneAlumno = $chkAl->get_result()->num_rows > 0;
-                $chkAl->close();
-                if (!$tieneAlumno) continue;
+                foreach ($turnosGuardar as $turnoIdActual) {
+                    // Seguridad: el DNI debe pertenecer al curso seleccionado.
+                    $chkAl = $conn->prepare("SELECT 1 FROM asignado_alumno_turno WHERE alumno_dni=? AND curso_id=? AND year_escolar_id=? AND turno_id=? LIMIT 1");
+                    $chkAl->bind_param("iiii", $dniAlumno, $cursoSeleccionado, $yearEscolarId, $turnoIdActual);
+                    $chkAl->execute();
+                    $tieneAlumno = $chkAl->get_result()->num_rows > 0;
+                    $chkAl->close();
+                    if (!$tieneAlumno) continue;
 
-                // Recuperar el motivo ANTES de borrar el registro anterior.
-                $motivo = null;
-                $busca = $conn->prepare("SELECT motivo_justificado FROM asistencia WHERE alumno_dni=? AND fecha=? LIMIT 1");
-                $busca->bind_param("is", $dniAlumno, $fecha); $busca->execute();
-                $res2 = $busca->get_result();
-                if ($f2 = $res2->fetch_assoc()) $motivo = $f2['motivo_justificado'];
-                $busca->close();
+                    // Recuperar el motivo ANTES de borrar el registro anterior.
+                    $motivo = null;
+                    $busca = $conn->prepare("SELECT motivo_justificado FROM asistencia WHERE alumno_dni=? AND fecha=? AND turno_id=? LIMIT 1");
+                    $busca->bind_param("isi", $dniAlumno, $fecha, $turnoIdActual); $busca->execute();
+                    $res2 = $busca->get_result();
+                    if ($f2 = $res2->fetch_assoc()) $motivo = $f2['motivo_justificado'];
+                    $busca->close();
 
-                $del = $conn->prepare("DELETE FROM asistencia WHERE alumno_dni=? AND fecha=?");
-                $del->bind_param("is", $dniAlumno, $fecha); $del->execute(); $del->close();
-                if ($estado === '') continue;
+                    if ($estado === '') continue;
 
-                $ins = $conn->prepare("INSERT INTO asistencia (alumno_dni, fecha, estado, motivo_justificado) VALUES (?,?,?,?)");
-                $ins->bind_param("isss", $dniAlumno, $fecha, $estado, $motivo); $ins->execute(); $ins->close();
+                    $ins = $conn->prepare("INSERT INTO asistencia (alumno_dni, fecha, turno_id, estado, motivo_justificado) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE estado = VALUES(estado), motivo_justificado = VALUES(motivo_justificado)");
+                    $ins->bind_param("isiss", $dniAlumno, $fecha, $turnoIdActual, $estado, $motivo); $ins->execute(); $ins->close();
+                }
             }
         }
         $mensajeOK = "Asistencia guardada correctamente.";
@@ -99,9 +144,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar']) && $cursoS
 // ALUMNOS
 $alumnos = [];
 if ($cursoSeleccionado) {
-    $stmt = $conn->prepare("SELECT u.dni, u.nombre FROM asignado_alumno aa JOIN usuarios u ON u.dni=aa.alumno_dni WHERE aa.curso_id=? AND aa.year_escolar_id=? AND aa.estado='activo' ORDER BY u.nombre");
-    $stmt->bind_param("ii", $cursoSeleccionado, $yearEscolarId); $stmt->execute();
-    $res = $stmt->get_result(); while ($fila = $res->fetch_assoc()) $alumnos[] = $fila; $stmt->close();
+    if ($turnoSeleccionado === 'todos') {
+        $idsTurnos = [];
+        foreach ($turnosVista as $tr) {
+            $turnoId = (int)$tr['turno_id'];
+            if ($turnoId > 0) $idsTurnos[] = $turnoId;
+        }
+        if (!empty($idsTurnos)) {
+            $phTurnos = implode(',', array_fill(0, count($idsTurnos), '?'));
+            $stmt = $conn->prepare("SELECT DISTINCT u.dni, u.nombre FROM asignado_alumno_turno aat JOIN usuarios u ON u.dni=aat.alumno_dni WHERE aat.curso_id=? AND aat.year_escolar_id=? AND aat.turno_id IN ($phTurnos) AND EXISTS (SELECT 1 FROM asignado_alumno aa WHERE aa.alumno_dni=aat.alumno_dni AND aa.curso_id=aat.curso_id AND aa.year_escolar_id=aat.year_escolar_id AND aa.estado='activo') ORDER BY u.nombre");
+            $params = [$cursoSeleccionado, $yearEscolarId];
+            foreach ($idsTurnos as $turnoId) $params[] = $turnoId;
+            $stmt->bind_param(str_repeat('i', count($params)), ...$params);
+            $stmt->execute();
+            $res = $stmt->get_result(); while ($fila = $res->fetch_assoc()) $alumnos[] = $fila; $stmt->close();
+        }
+    } else {
+        $stmt = $conn->prepare("SELECT DISTINCT u.dni, u.nombre FROM asignado_alumno_turno aat JOIN usuarios u ON u.dni=aat.alumno_dni WHERE aat.curso_id=? AND aat.year_escolar_id=? AND aat.turno_id=? AND EXISTS (SELECT 1 FROM asignado_alumno aa WHERE aa.alumno_dni=aat.alumno_dni AND aa.curso_id=aat.curso_id AND aa.year_escolar_id=aat.year_escolar_id AND aa.estado='activo') ORDER BY u.nombre");
+        $stmt->bind_param("iii", $cursoSeleccionado, $yearEscolarId, $turnoIdSeleccionado); $stmt->execute();
+        $res = $stmt->get_result(); while ($fila = $res->fetch_assoc()) $alumnos[] = $fila; $stmt->close();
+    }
 }
 
 // ASISTENCIAS DEL MES
@@ -110,8 +172,8 @@ if ($alumnos) {
     $dniList = implode(',', array_map('intval', array_column($alumnos, 'dni')));
     $desde   = sprintf('%04d-%02d-01', $anioSeleccionado, $mesSeleccionado);
     $hasta   = sprintf('%04d-%02d-%02d', $anioSeleccionado, $mesSeleccionado, $totalDias);
-    $stmt = $conn->prepare("SELECT alumno_dni, fecha, estado, motivo_justificado FROM asistencia WHERE alumno_dni IN ($dniList) AND fecha BETWEEN ? AND ?");
-    $stmt->bind_param("ss", $desde, $hasta); $stmt->execute();
+    $stmt = $conn->prepare("SELECT alumno_dni, fecha, estado, motivo_justificado FROM asistencia WHERE alumno_dni IN ($dniList) AND fecha BETWEEN ? AND ? AND turno_id=?");
+    $stmt->bind_param("ssi", $desde, $hasta, $turnoIdSeleccionado); $stmt->execute();
     $res = $stmt->get_result();
     while ($fila = $res->fetch_assoc()) {
         $dia = (int)date('j', strtotime($fila['fecha']));
@@ -137,6 +199,43 @@ foreach ($alumnos as $al) {
 
 $diasLaborablesDelMes = 0;
 for ($d=1;$d<=$totalDias;$d++) { $dow=(int)date('w',strtotime(sprintf('%04d-%02d-%02d',$anioSeleccionado,$mesSeleccionado,$d))); if ($dow!==0&&$dow!==6) $diasLaborablesDelMes++; }
+
+// Porcentaje global del turno seleccionado (o de todos los turnos).
+$porcentajeTurno = 0;
+$resumenTurno = ['presentes'=>0,'ausentes'=>0,'tardanzas'=>0,'justificados'=>0,'total'=>0];
+$idsResumen = array_values(array_filter(array_map(fn($c) => (int)$c['id'], $cursos)));
+if ($turnoSeleccionado === 'todos') {
+    $idsResumen = array_values(array_filter(array_map(fn($c) => (int)$c['id'], $cursosTodosTurnos)));
+}
+if ($idsResumen) {
+    $ph = implode(',', array_fill(0, count($idsResumen), '?'));
+    $sqlResumen = "SELECT
+        SUM(a.estado='presente') AS presentes,
+        SUM(a.estado='ausente') AS ausentes,
+        SUM(a.estado='tarde') AS tardanzas,
+        SUM(a.estado='justificado') AS justificados,
+        COUNT(*) AS total
+      FROM asistencia a
+      JOIN asignado_alumno aa ON aa.alumno_dni=a.alumno_dni
+      WHERE aa.curso_id IN ($ph)
+        AND aa.year_escolar_id=?
+        AND aa.estado='activo'
+        AND a.fecha BETWEEN ? AND ?";
+    $paramsResumen = array_merge($idsResumen, [$yearEscolarId,
+        sprintf('%04d-%02d-01',$anioSeleccionado,$mesSeleccionado),
+        sprintf('%04d-%02d-%02d',$anioSeleccionado,$mesSeleccionado,$totalDias)]);
+    if ($turnoSeleccionado !== 'todos') {
+        $sqlResumen .= " AND a.turno_id=?";
+        $paramsResumen[] = $turnoIdSeleccionado;
+    }
+    $stmtResumen = $pdo->prepare($sqlResumen);
+    $stmtResumen->execute($paramsResumen);
+    $filaResumen = $stmtResumen->fetch(PDO::FETCH_ASSOC) ?: [];
+    foreach ($resumenTurno as $k => $_) $resumenTurno[$k] = (int)($filaResumen[$k] ?? 0);
+    if ($resumenTurno['total'] > 0) {
+        $porcentajeTurno = round(($resumenTurno['presentes'] + $resumenTurno['justificados']) / $resumenTurno['total'] * 100, 1);
+    }
+}
 
 $meses = [1=>'Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 $diasAMostrar = [];
@@ -442,14 +541,28 @@ for ($d=1;$d<=$totalDias;$d++) {
     ══════════════════════════════════════ -->
     <div class="vista-desktop">
       <h3 class="titulo-asistencia">Lista de Asistencia</h3>
+      <?php if ($turnoSeleccionado === 'todos'): ?>
+        <div style="padding:12px 16px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;margin-bottom:12px;color:#9a3412;">
+          Seleccioná <strong>un turno</strong> para cargar o editar asistencias. Con <strong>Todos los turnos</strong> se muestra únicamente el porcentaje/resumen global.
+        </div>
+      <?php endif; ?>
       <form method="GET" style="margin:0 0 10px 0;" id="formFiltros">
         <div class="filtros-superior">
+          <div>
+            <label>Turno:</label>
+            <select name="turno" onchange="this.form.submit()">
+              <option value="todos" <?php if ($turnoSeleccionado==='todos') echo 'selected'; ?>>Todos los turnos</option>
+              <option value="mañana" <?php if ($turnoSeleccionado==='mañana') echo 'selected'; ?>>Mañana</option>
+              <option value="tarde" <?php if ($turnoSeleccionado==='tarde') echo 'selected'; ?>>Tarde</option>
+              <option value="vespertino" <?php if ($turnoSeleccionado==='vespertino') echo 'selected'; ?>>Vespertino</option>
+            </select>
+          </div>
           <div>
             <label>Curso:</label>
             <select name="curso_id" onchange="this.form.submit()">
               <?php foreach ($cursos as $c): ?>
                 <option value="<?php echo $c['id']; ?>" <?php if ($cursoSeleccionado==$c['id']) echo 'selected'; ?>>
-                  <?php echo htmlspecialchars($c['nombre']); ?>
+                  <?php echo htmlspecialchars($c['nombre']); ?><?php if (!empty($c['turnos'])): ?> — <?php echo htmlspecialchars(implode(', ', array_map(fn($tr) => ucfirst($tr['turno']), $c['turnos']))); ?><?php endif; ?>
                 </option>
               <?php endforeach; ?>
             </select>
@@ -493,6 +606,7 @@ for ($d=1;$d<=$totalDias;$d++) {
       <form method="POST" id="formAsistenciaDesktop">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">
         <input type="hidden" name="curso_id" value="<?php echo $cursoSeleccionado; ?>">
+        <input type="hidden" name="turno" value="<?php echo htmlspecialchars($turnoSeleccionado); ?>">
         <input type="hidden" name="mes"      value="<?php echo $mesSeleccionado; ?>">
         <input type="hidden" name="anio"     value="<?php echo $anioSeleccionado; ?>">
         <?php if ($diaFiltro > 0): ?><input type="hidden" name="dia" value="<?php echo $diaFiltro; ?>"><?php endif; ?>
@@ -555,7 +669,7 @@ for ($d=1;$d<=$totalDias;$d++) {
           </tbody>
         </table>
         </div>
-        <div class="botones"><button type="submit" name="guardar">💾 Guardar</button></div>
+        <div class="botones"><button type="submit" name="guardar" <?php echo !$turnoIdSeleccionado ? 'disabled title="Seleccioná un turno"' : ''; ?>>💾 Guardar</button></div>
       </form>
 
       <?php if ($alumnos && $diaFiltro===0):
@@ -572,7 +686,8 @@ for ($d=1;$d<=$totalDias;$d++) {
           <div class="resumen-card rc-aus"><div class="rc-num"><?php echo $totA;?></div><div class="rc-lbl">Ausentes</div></div>
           <div class="resumen-card rc-tard"><div class="rc-num"><?php echo $totT;?></div><div class="rc-lbl">Tardanzas</div></div>
           <div class="resumen-card rc-just"><div class="rc-num"><?php echo $totJ;?></div><div class="rc-lbl">Justificados</div></div>
-          <div class="resumen-card rc-prom"><div class="rc-num"><?php echo $promAsistencia;?>%</div><div class="rc-lbl">Prom. asistencia</div></div>
+          <div class="resumen-card rc-prom"><div class="rc-num"><?php echo $promAsistencia;?>%</div><div class="rc-lbl">Prom. curso</div></div>
+          <div class="resumen-card rc-prom"><div class="rc-num"><?php echo $porcentajeTurno;?>%</div><div class="rc-lbl"><?php echo $turnoSeleccionado==='todos'?'Prom. todos los turnos':'Prom. turno '.ucfirst($turnoSeleccionado); ?></div></div>
         </div>
         <p style="font-size:12px;color:#64748b;margin:10px 0 0;">
           <strong>P</strong> Presentes · <strong>A</strong> Ausentes · <strong>T</strong> Tardanzas · <strong>J</strong> Justificados · <strong>%</strong> % asistencia. Rojo = menos del 70%.
@@ -589,6 +704,12 @@ for ($d=1;$d<=$totalDias;$d++) {
       <!-- Filtros compactos móvil -->
       <form method="GET" id="formFiltrosMobile">
         <div class="filtros-mobile">
+          <select name="turno" onchange="this.form.submit()">
+            <option value="todos" <?php if ($turnoSeleccionado==='todos') echo 'selected'; ?>>Todos los turnos</option>
+            <option value="mañana" <?php if ($turnoSeleccionado==='mañana') echo 'selected'; ?>>Mañana</option>
+            <option value="tarde" <?php if ($turnoSeleccionado==='tarde') echo 'selected'; ?>>Tarde</option>
+            <option value="vespertino" <?php if ($turnoSeleccionado==='vespertino') echo 'selected'; ?>>Vespertino</option>
+          </select>
           <select name="curso_id" onchange="this.form.submit()">
             <?php foreach ($cursos as $c): ?>
               <option value="<?php echo $c['id']; ?>" <?php if ($cursoSeleccionado==$c['id']) echo 'selected'; ?>>
@@ -707,6 +828,7 @@ let motivosPrevios = <?php echo json_encode($motivosPrevios ?? []); ?>;
 const mesActual  = <?php echo $mesSeleccionado; ?>;
 const anioActual = <?php echo $anioSeleccionado; ?>;
 const cursoId    = <?php echo $cursoSeleccionado; ?>;
+const turnoActual = <?= json_encode($turnoSeleccionado) ?>;
 
 // Estado temporal móvil: { dni: { dia: estado } }
 let estadosMobile = {};
@@ -795,7 +917,7 @@ document.getElementById('btnGuardarModal').addEventListener('click', async () =>
   const btn = document.getElementById('btnGuardarModal');
   btn.disabled = true; btn.textContent = 'Guardando…';
   try {
-    const body = new URLSearchParams({ alumno_dni: dni, fecha, motivo });
+    const body = new URLSearchParams({ alumno_dni: dni, fecha, motivo, turno: <?= json_encode($turnoSeleccionado) ?> });
     body.append('csrf_token', <?= json_encode(csrfToken()) ?>);
     const resp = await fetch('api_guardar_justificado.php', { method: 'POST', body });
     const data = await resp.json();
@@ -880,7 +1002,7 @@ function seleccionarDia(dia) {
     </div>
     ${filas || '<div class="sin-dia-seleccionado">No hay alumnos en este curso.</div>'}`;
 
-  document.getElementById('btnGuardarMobile').style.display = alumnosLista.length ? 'block' : 'none';
+  document.getElementById('btnGuardarMobile').style.display = (alumnosLista.length && turnoActual !== 'todos') ? 'block' : 'none';
 }
 
 function toggleEstadoMobile(btn) {
@@ -914,6 +1036,7 @@ async function guardarMobile() {
   formData.append('mes', mesActual);
   formData.append('anio', anioActual);
   formData.append('dia', diaSeleccionado);
+  formData.append('turno', <?= json_encode($turnoSeleccionado) ?>);
 
   alumnosLista.forEach(al => {
     const est = estadosMobile[al.dni]?.[diaSeleccionado] ?? '';
@@ -981,7 +1104,7 @@ async function cargarWidgetHoy() {
   if (!w) return;
   try {
     const fecha = getFechaWidget();
-    const url = fecha==='hoy' ? 'api_presentes_hoy.php' : `api_presentes_hoy.php?fecha=${fecha}`;
+    const url = fecha==='hoy' ? `api_presentes_hoy.php?turno=${encodeURIComponent(turnoActual)}` : `api_presentes_hoy.php?fecha=${fecha}&turno=${encodeURIComponent(turnoActual)}`;
     const resp = await fetch(url);
     if (!resp.ok) return;
     actualizarWidget(await resp.json());
