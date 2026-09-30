@@ -64,16 +64,25 @@ if ($cursos) {
 }
 
 // FILTRO DE TURNO
-$turnosValidos = ['todos', 'mañana', 'tarde', 'vespertino'];
-$turnoSeleccionado = isset($_REQUEST['turno']) ? (string)$_REQUEST['turno'] : 'todos';
-if (!in_array($turnoSeleccionado, $turnosValidos, true)) $turnoSeleccionado = 'todos';
-$cursosTodosTurnos = $cursos;
-if ($turnoSeleccionado !== 'todos') {
-    $cursos = array_values(array_filter($cursos, function($c) use ($turnoSeleccionado) {
-        foreach (($c['turnos'] ?? []) as $tr) if ($tr['turno'] === $turnoSeleccionado) return true;
-        return false;
-    }));
+$turnosValidos = ['mañana', 'tarde', 'vespertino'];
+$turnoPorDefecto = $turnosValidos[0];
+foreach ($turnosValidos as $turnoDisponible) {
+  foreach ($turnosPorCurso as $turnosCurso) {
+    foreach ($turnosCurso as $turnoCurso) {
+      if ($turnoCurso['turno'] === $turnoDisponible) {
+        $turnoPorDefecto = $turnoDisponible;
+        break 3;
+      }
+    }
+  }
 }
+$turnoSeleccionado = isset($_REQUEST['turno']) ? (string)$_REQUEST['turno'] : $turnoPorDefecto;
+if (!in_array($turnoSeleccionado, $turnosValidos, true)) $turnoSeleccionado = $turnoPorDefecto;
+$cursosTodosTurnos = $cursos;
+$cursos = array_values(array_filter($cursos, function($c) use ($turnoSeleccionado) {
+  foreach (($c['turnos'] ?? []) as $tr) if ($tr['turno'] === $turnoSeleccionado) return true;
+  return false;
+}));
 
 // PARÁMETROS
 $cursoSeleccionado = isset($_REQUEST['curso_id']) ? (int)$_REQUEST['curso_id'] : (count($cursos) ? (int)$cursos[0]['id'] : 0);
@@ -81,7 +90,7 @@ $idsPermitidos     = array_map(fn($c) => (int)$c['id'], $cursos);
 if (!in_array($cursoSeleccionado, $idsPermitidos, true)) $cursoSeleccionado = count($cursos) ? (int)$cursos[0]['id'] : 0;
 $turnosVista = $turnosPorCurso[$cursoSeleccionado] ?? [];
 $turnoIdSeleccionado = 0;
-if ($cursoSeleccionado && $turnoSeleccionado !== 'todos') {
+if ($cursoSeleccionado) {
     foreach ($turnosVista as $tr) {
         if ($tr['turno'] === $turnoSeleccionado) { $turnoIdSeleccionado = (int)$tr['turno_id']; break; }
     }
@@ -96,14 +105,7 @@ if ($diaFiltro < 0 || $diaFiltro > $totalDias) $diaFiltro = 0;
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar']) && $cursoSeleccionado) {
     requireCsrf();
     $turnosGuardar = [];
-    if ($turnoSeleccionado === 'todos') {
-        foreach ($turnosVista as $tr) {
-            $turnoId = (int)$tr['turno_id'];
-            if ($turnoId > 0) $turnosGuardar[] = $turnoId;
-        }
-    } elseif ($turnoIdSeleccionado > 0) {
-        $turnosGuardar[] = $turnoIdSeleccionado;
-    }
+  if ($turnoIdSeleccionado > 0) $turnosGuardar[] = $turnoIdSeleccionado;
 
     if (!empty($turnosGuardar) && isset($_POST['estado']) && is_array($_POST['estado'])) {
         foreach ($_POST['estado'] as $dniAlumno => $dias) {
@@ -144,26 +146,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar']) && $cursoS
 // ALUMNOS
 $alumnos = [];
 if ($cursoSeleccionado) {
-    if ($turnoSeleccionado === 'todos') {
-        $idsTurnos = [];
-        foreach ($turnosVista as $tr) {
-            $turnoId = (int)$tr['turno_id'];
-            if ($turnoId > 0) $idsTurnos[] = $turnoId;
-        }
-        if (!empty($idsTurnos)) {
-            $phTurnos = implode(',', array_fill(0, count($idsTurnos), '?'));
-            $stmt = $conn->prepare("SELECT DISTINCT u.dni, u.nombre FROM asignado_alumno_turno aat JOIN usuarios u ON u.dni=aat.alumno_dni WHERE aat.curso_id=? AND aat.year_escolar_id=? AND aat.turno_id IN ($phTurnos) AND EXISTS (SELECT 1 FROM asignado_alumno aa WHERE aa.alumno_dni=aat.alumno_dni AND aa.curso_id=aat.curso_id AND aa.year_escolar_id=aat.year_escolar_id AND aa.estado='activo') ORDER BY u.nombre");
-            $params = [$cursoSeleccionado, $yearEscolarId];
-            foreach ($idsTurnos as $turnoId) $params[] = $turnoId;
-            $stmt->bind_param(str_repeat('i', count($params)), ...$params);
-            $stmt->execute();
-            $res = $stmt->get_result(); while ($fila = $res->fetch_assoc()) $alumnos[] = $fila; $stmt->close();
-        }
-    } else {
-        $stmt = $conn->prepare("SELECT DISTINCT u.dni, u.nombre FROM asignado_alumno_turno aat JOIN usuarios u ON u.dni=aat.alumno_dni WHERE aat.curso_id=? AND aat.year_escolar_id=? AND aat.turno_id=? AND EXISTS (SELECT 1 FROM asignado_alumno aa WHERE aa.alumno_dni=aat.alumno_dni AND aa.curso_id=aat.curso_id AND aa.year_escolar_id=aat.year_escolar_id AND aa.estado='activo') ORDER BY u.nombre");
-        $stmt->bind_param("iii", $cursoSeleccionado, $yearEscolarId, $turnoIdSeleccionado); $stmt->execute();
-        $res = $stmt->get_result(); while ($fila = $res->fetch_assoc()) $alumnos[] = $fila; $stmt->close();
-    }
+  $stmt = $conn->prepare("SELECT DISTINCT u.dni, u.nombre FROM asignado_alumno_turno aat JOIN usuarios u ON u.dni=aat.alumno_dni WHERE aat.curso_id=? AND aat.year_escolar_id=? AND aat.turno_id=? AND EXISTS (SELECT 1 FROM asignado_alumno aa WHERE aa.alumno_dni=aat.alumno_dni AND aa.curso_id=aat.curso_id AND aa.year_escolar_id=aat.year_escolar_id AND aa.estado='activo') ORDER BY u.nombre");
+  $stmt->bind_param("iii", $cursoSeleccionado, $yearEscolarId, $turnoIdSeleccionado); $stmt->execute();
+  $res = $stmt->get_result(); while ($fila = $res->fetch_assoc()) $alumnos[] = $fila; $stmt->close();
 }
 
 // ASISTENCIAS DEL MES
@@ -183,59 +168,128 @@ if ($alumnos) {
     $stmt->close();
 }
 
+// Totales por alumno: sumar turnos y ponderar las faltas si hubo presencia ese día.
+$metricasPorAlumno = [];
+if ($cursoSeleccionado) {
+    $stmtMetricas = $pdo->prepare("SELECT dia.alumno_dni,
+        COALESCE(SUM(dia.presentes), 0) AS presentes,
+        COALESCE(SUM(CASE WHEN dia.tiene_presente=1 AND dia.ausentes>0 THEN 0.5 ELSE dia.ausentes END), 0) AS ausentes,
+        COALESCE(SUM(dia.tardanzas), 0) AS tardanzas,
+        COALESCE(SUM(dia.justificados), 0) AS justificados,
+        COALESCE(SUM(dia.turnos_registrados), 0) AS total
+      FROM (
+        SELECT a.alumno_dni, a.fecha,
+          SUM(a.estado='presente') AS presentes,
+          SUM(a.estado='ausente') AS ausentes,
+          SUM(a.estado='tarde') AS tardanzas,
+          SUM(a.estado='justificado') AS justificados,
+          MAX(a.estado='presente') AS tiene_presente,
+          COUNT(*) AS turnos_registrados
+        FROM asistencia a
+        WHERE a.fecha BETWEEN ? AND ?
+          AND DAYOFWEEK(a.fecha) NOT IN (1, 7)
+          AND EXISTS (
+            SELECT 1 FROM asignado_alumno_turno aat
+            JOIN asignado_alumno aa ON aa.alumno_dni=aat.alumno_dni
+              AND aa.curso_id=aat.curso_id
+              AND aa.year_escolar_id=aat.year_escolar_id
+            WHERE aat.alumno_dni=a.alumno_dni
+              AND aat.turno_id=a.turno_id
+              AND aat.year_escolar_id=?
+              AND aat.curso_id=?
+              AND aa.estado='activo'
+          )
+        GROUP BY a.alumno_dni, a.fecha
+      ) dia
+      GROUP BY dia.alumno_dni");
+    $stmtMetricas->execute([
+        sprintf('%04d-%02d-01', $anioSeleccionado, $mesSeleccionado),
+        sprintf('%04d-%02d-%02d', $anioSeleccionado, $mesSeleccionado, $totalDias),
+        $yearEscolarId,
+        $cursoSeleccionado
+    ]);
+    while ($metrica = $stmtMetricas->fetch(PDO::FETCH_ASSOC)) {
+        $metricasPorAlumno[(int)$metrica['alumno_dni']] = $metrica;
+    }
+}
+
 // TOTALES POR ALUMNO
+$formatearAusencias = static function ($valor): string {
+  $texto = number_format((float)$valor, 1, ',', '.');
+  return substr($texto, -2) === ',0' ? substr($texto, 0, -2) : $texto;
+};
 $totalesPorAlumno = [];
 foreach ($alumnos as $al) {
-    $dni = (int)$al['dni']; $data = $asistencias[$dni] ?? [];
-    $p = $a = $t = $j = 0;
-    foreach ($data as $dia => $est) {
-        $dow = (int)date('w', strtotime(sprintf('%04d-%02d-%02d', $anioSeleccionado, $mesSeleccionado, $dia)));
-        if ($dow === 0 || $dow === 6) continue;
-        if ($est==='presente') $p++; elseif ($est==='ausente') $a++; elseif ($est==='tarde') $t++; elseif ($est==='justificado') $j++;
-    }
-    $total = $p+$a+$t+$j;
-    $totalesPorAlumno[$dni] = ['presentes'=>$p,'ausentes'=>$a,'tardanzas'=>$t,'justificados'=>$j,'total'=>$total,'porcentaje'=>$total>0?round(($p+$j)/$total*100,1):0];
+    $dni = (int)$al['dni'];
+    $metrica = $metricasPorAlumno[$dni] ?? [];
+    $p = (int)($metrica['presentes'] ?? 0);
+    $a = (float)($metrica['ausentes'] ?? 0);
+    $t = (int)($metrica['tardanzas'] ?? 0);
+    $j = (int)($metrica['justificados'] ?? 0);
+    $total = (int)($metrica['total'] ?? 0);
+    $porcentaje = $total > 0 ? round(($p + $j) / $total * 100, 1) : 0;
+    $totalesPorAlumno[$dni] = ['presentes'=>$p,'ausentes'=>$a,'tardanzas'=>$t,'justificados'=>$j,'total'=>$total,'porcentaje'=>$porcentaje];
 }
 
 $diasLaborablesDelMes = 0;
 for ($d=1;$d<=$totalDias;$d++) { $dow=(int)date('w',strtotime(sprintf('%04d-%02d-%02d',$anioSeleccionado,$mesSeleccionado,$d))); if ($dow!==0&&$dow!==6) $diasLaborablesDelMes++; }
 
-// Porcentaje global del turno seleccionado (o de todos los turnos).
-$porcentajeTurno = 0;
-$resumenTurno = ['presentes'=>0,'ausentes'=>0,'tardanzas'=>0,'justificados'=>0,'total'=>0];
-$idsResumen = array_values(array_filter(array_map(fn($c) => (int)$c['id'], $cursos)));
-if ($turnoSeleccionado === 'todos') {
-    $idsResumen = array_values(array_filter(array_map(fn($c) => (int)$c['id'], $cursosTodosTurnos)));
-}
-if ($idsResumen) {
-    $ph = implode(',', array_fill(0, count($idsResumen), '?'));
-    $sqlResumen = "SELECT
-        SUM(a.estado='presente') AS presentes,
-        SUM(a.estado='ausente') AS ausentes,
-        SUM(a.estado='tarde') AS tardanzas,
-        SUM(a.estado='justificado') AS justificados,
-        COUNT(*) AS total
-      FROM asistencia a
-      JOIN asignado_alumno aa ON aa.alumno_dni=a.alumno_dni
-      WHERE aa.curso_id IN ($ph)
-        AND aa.year_escolar_id=?
-        AND aa.estado='activo'
-        AND a.fecha BETWEEN ? AND ?";
-    $paramsResumen = array_merge($idsResumen, [$yearEscolarId,
-        sprintf('%04d-%02d-01',$anioSeleccionado,$mesSeleccionado),
-        sprintf('%04d-%02d-%02d',$anioSeleccionado,$mesSeleccionado,$totalDias)]);
-    if ($turnoSeleccionado !== 'todos') {
-        $sqlResumen .= " AND a.turno_id=?";
-        $paramsResumen[] = $turnoIdSeleccionado;
-    }
-    $stmtResumen = $pdo->prepare($sqlResumen);
-    $stmtResumen->execute($paramsResumen);
-    $filaResumen = $stmtResumen->fetch(PDO::FETCH_ASSOC) ?: [];
-    foreach ($resumenTurno as $k => $_) $resumenTurno[$k] = (int)($filaResumen[$k] ?? 0);
-    if ($resumenTurno['total'] > 0) {
-        $porcentajeTurno = round(($resumenTurno['presentes'] + $resumenTurno['justificados']) / $resumenTurno['total'] * 100, 1);
-    }
-}
+// Resúmenes por curso y generales: sumar registros de todos los turnos.
+$desdeResumen = sprintf('%04d-%02d-01', $anioSeleccionado, $mesSeleccionado);
+$hastaResumen = sprintf('%04d-%02d-%02d', $anioSeleccionado, $mesSeleccionado, $totalDias);
+$calcularResumenTurnos = static function (array $idsCursos) use ($pdo, $yearEscolarId, $desdeResumen, $hastaResumen): array {
+    $resumen = ['presentes'=>0,'ausentes'=>0.0,'tardanzas'=>0,'justificados'=>0,'total'=>0];
+    $idsCursos = array_values(array_unique(array_filter(array_map('intval', $idsCursos))));
+    if (!$idsCursos) return $resumen;
+
+    $placeholders = implode(',', array_fill(0, count($idsCursos), '?'));
+    $sql = "SELECT
+        COALESCE(SUM(dia.presentes), 0) AS presentes,
+        COALESCE(SUM(CASE WHEN dia.tiene_presente=1 AND dia.ausentes>0 THEN 0.5 ELSE dia.ausentes END), 0) AS ausentes,
+        COALESCE(SUM(dia.tardanzas), 0) AS tardanzas,
+        COALESCE(SUM(dia.justificados), 0) AS justificados,
+        COALESCE(SUM(dia.turnos_registrados), 0) AS total
+      FROM (
+        SELECT a.alumno_dni, a.fecha,
+          SUM(a.estado='presente') AS presentes,
+          SUM(a.estado='ausente') AS ausentes,
+          SUM(a.estado='tarde') AS tardanzas,
+          SUM(a.estado='justificado') AS justificados,
+          MAX(a.estado='presente') AS tiene_presente,
+          COUNT(*) AS turnos_registrados
+        FROM asistencia a
+        WHERE a.fecha BETWEEN ? AND ?
+          AND EXISTS (
+            SELECT 1 FROM asignado_alumno_turno aat
+            JOIN asignado_alumno aa ON aa.alumno_dni=aat.alumno_dni
+              AND aa.curso_id=aat.curso_id
+              AND aa.year_escolar_id=aat.year_escolar_id
+            WHERE aat.alumno_dni=a.alumno_dni
+              AND aat.turno_id=a.turno_id
+              AND aat.year_escolar_id=?
+              AND aat.curso_id IN ($placeholders)
+              AND aa.estado='activo'
+          )
+        GROUP BY a.alumno_dni, a.fecha
+      ) dia";
+    $stmtResumen = $pdo->prepare($sql);
+    $stmtResumen->execute(array_merge([$desdeResumen, $hastaResumen, $yearEscolarId], $idsCursos));
+    $fila = $stmtResumen->fetch(PDO::FETCH_ASSOC) ?: [];
+    $resumen['presentes'] = (int)($fila['presentes'] ?? 0);
+    $resumen['ausentes'] = round((float)($fila['ausentes'] ?? 0), 2);
+    $resumen['tardanzas'] = (int)($fila['tardanzas'] ?? 0);
+    $resumen['justificados'] = (int)($fila['justificados'] ?? 0);
+    $resumen['total'] = (int)($fila['total'] ?? 0);
+    return $resumen;
+};
+
+$idsCursoSeleccionado = $cursoSeleccionado ? [$cursoSeleccionado] : [];
+$idsCursosAccesibles = array_map(static fn($curso) => (int)$curso['id'], $cursosTodosTurnos);
+$resumenCurso = $calcularResumenTurnos($idsCursoSeleccionado);
+$resumenGeneral = $calcularResumenTurnos($idsCursosAccesibles);
+ $porcentajeTurno = $resumenGeneral['total'] > 0
+    ? round(($resumenGeneral['presentes'] + $resumenGeneral['justificados']) / $resumenGeneral['total'] * 100, 1)
+    : 0;
 
 $meses = [1=>'Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 $diasAMostrar = [];
@@ -541,17 +595,11 @@ for ($d=1;$d<=$totalDias;$d++) {
     ══════════════════════════════════════ -->
     <div class="vista-desktop">
       <h3 class="titulo-asistencia">Lista de Asistencia</h3>
-      <?php if ($turnoSeleccionado === 'todos'): ?>
-        <div style="padding:12px 16px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;margin-bottom:12px;color:#9a3412;">
-          Seleccioná <strong>un turno</strong> para cargar o editar asistencias. Con <strong>Todos los turnos</strong> se muestra únicamente el porcentaje/resumen global.
-        </div>
-      <?php endif; ?>
       <form method="GET" style="margin:0 0 10px 0;" id="formFiltros">
         <div class="filtros-superior">
           <div>
             <label>Turno:</label>
             <select name="turno" onchange="this.form.submit()">
-              <option value="todos" <?php if ($turnoSeleccionado==='todos') echo 'selected'; ?>>Todos los turnos</option>
               <option value="mañana" <?php if ($turnoSeleccionado==='mañana') echo 'selected'; ?>>Mañana</option>
               <option value="tarde" <?php if ($turnoSeleccionado==='tarde') echo 'selected'; ?>>Tarde</option>
               <option value="vespertino" <?php if ($turnoSeleccionado==='vespertino') echo 'selected'; ?>>Vespertino</option>
@@ -658,7 +706,7 @@ for ($d=1;$d<=$totalDias;$d++) {
                       $pc=$pct>=85?'pct-ok':($pct>=70?'pct-med':'pct-mal');
                 ?>
                 <td class="total-num total-p"><?php echo $tot['presentes'];?></td>
-                <td class="total-num total-a"><?php echo $tot['ausentes'];?></td>
+                <td class="total-num total-a"><?php echo $formatearAusencias($tot['ausentes']);?></td>
                 <td class="total-num total-t"><?php echo $tot['tardanzas'];?></td>
                 <td class="total-num total-j"><?php echo $tot['justificados'];?></td>
                 <td class="total-num total-pct <?php echo $pc;?>"><?php echo $pct;?>%</td>
@@ -673,9 +721,11 @@ for ($d=1;$d<=$totalDias;$d++) {
       </form>
 
       <?php if ($alumnos && $diaFiltro===0):
-        $totP=$totA=$totT=$totJ=0;
-        foreach($totalesPorAlumno as $t){$totP+=$t['presentes'];$totA+=$t['ausentes'];$totT+=$t['tardanzas'];$totJ+=$t['justificados'];}
-        $totalReg=$totP+$totA+$totT+$totJ;
+        $totP=$resumenCurso['presentes'];
+        $totA=$resumenCurso['ausentes'];
+        $totT=$resumenCurso['tardanzas'];
+        $totJ=$resumenCurso['justificados'];
+        $totalReg=$resumenCurso['total'];
         $promAsistencia=$totalReg>0?round(($totP+$totJ)/$totalReg*100,1):0;
       ?>
       <div class="resumen-totales">
@@ -683,11 +733,11 @@ for ($d=1;$d<=$totalDias;$d++) {
         <div class="resumen-grid">
           <div class="resumen-card rc-dias"><div class="rc-num"><?php echo $diasLaborablesDelMes;?></div><div class="rc-lbl">Días hábiles</div></div>
           <div class="resumen-card rc-pres"><div class="rc-num"><?php echo $totP;?></div><div class="rc-lbl">Presentes</div></div>
-          <div class="resumen-card rc-aus"><div class="rc-num"><?php echo $totA;?></div><div class="rc-lbl">Ausentes</div></div>
+          <div class="resumen-card rc-aus"><div class="rc-num"><?php echo $formatearAusencias($totA);?></div><div class="rc-lbl">Ausentes</div></div>
           <div class="resumen-card rc-tard"><div class="rc-num"><?php echo $totT;?></div><div class="rc-lbl">Tardanzas</div></div>
           <div class="resumen-card rc-just"><div class="rc-num"><?php echo $totJ;?></div><div class="rc-lbl">Justificados</div></div>
-          <div class="resumen-card rc-prom"><div class="rc-num"><?php echo $promAsistencia;?>%</div><div class="rc-lbl">Prom. curso</div></div>
-          <div class="resumen-card rc-prom"><div class="rc-num"><?php echo $porcentajeTurno;?>%</div><div class="rc-lbl"><?php echo $turnoSeleccionado==='todos'?'Prom. todos los turnos':'Prom. turno '.ucfirst($turnoSeleccionado); ?></div></div>
+          <div class="resumen-card rc-prom"><div class="rc-num"><?php echo $promAsistencia;?>%</div><div class="rc-lbl">Prom. curso (3 turnos)</div></div>
+          <div class="resumen-card rc-prom"><div class="rc-num"><?php echo $porcentajeTurno;?>%</div><div class="rc-lbl">Prom. general (3 turnos)</div></div>
         </div>
         <p style="font-size:12px;color:#64748b;margin:10px 0 0;">
           <strong>P</strong> Presentes · <strong>A</strong> Ausentes · <strong>T</strong> Tardanzas · <strong>J</strong> Justificados · <strong>%</strong> % asistencia. Rojo = menos del 70%.
@@ -705,7 +755,6 @@ for ($d=1;$d<=$totalDias;$d++) {
       <form method="GET" id="formFiltrosMobile">
         <div class="filtros-mobile">
           <select name="turno" onchange="this.form.submit()">
-            <option value="todos" <?php if ($turnoSeleccionado==='todos') echo 'selected'; ?>>Todos los turnos</option>
             <option value="mañana" <?php if ($turnoSeleccionado==='mañana') echo 'selected'; ?>>Mañana</option>
             <option value="tarde" <?php if ($turnoSeleccionado==='tarde') echo 'selected'; ?>>Tarde</option>
             <option value="vespertino" <?php if ($turnoSeleccionado==='vespertino') echo 'selected'; ?>>Vespertino</option>
@@ -828,7 +877,6 @@ let motivosPrevios = <?php echo json_encode($motivosPrevios ?? []); ?>;
 const mesActual  = <?php echo $mesSeleccionado; ?>;
 const anioActual = <?php echo $anioSeleccionado; ?>;
 const cursoId    = <?php echo $cursoSeleccionado; ?>;
-const turnoActual = <?= json_encode($turnoSeleccionado) ?>;
 
 // Estado temporal móvil: { dni: { dia: estado } }
 let estadosMobile = {};
@@ -1002,7 +1050,7 @@ function seleccionarDia(dia) {
     </div>
     ${filas || '<div class="sin-dia-seleccionado">No hay alumnos en este curso.</div>'}`;
 
-  document.getElementById('btnGuardarMobile').style.display = (alumnosLista.length && turnoActual !== 'todos') ? 'block' : 'none';
+  document.getElementById('btnGuardarMobile').style.display = alumnosLista.length ? 'block' : 'none';
 }
 
 function toggleEstadoMobile(btn) {
@@ -1081,9 +1129,10 @@ function actualizarColorCal(dia) {
 function actualizarWidget(data) {
   if (!data || data.error) { console.warn('Widget:', data?.error); return; }
   const g = data.general;
+  const formatoAusencias = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 1 });
   document.getElementById('whTot').textContent = g.total        ?? 0;
   document.getElementById('whPre').textContent = g.presentes    ?? 0;
-  document.getElementById('whAus').textContent = g.ausentes     ?? 0;
+  document.getElementById('whAus').textContent = formatoAusencias.format(Number(g.ausentes ?? 0));
   document.getElementById('whTar').textContent = g.tardanzas    ?? 0;
   document.getElementById('whJus').textContent = g.justificados ?? 0;
 }
@@ -1104,7 +1153,7 @@ async function cargarWidgetHoy() {
   if (!w) return;
   try {
     const fecha = getFechaWidget();
-    const url = fecha==='hoy' ? `api_presentes_hoy.php?turno=${encodeURIComponent(turnoActual)}` : `api_presentes_hoy.php?fecha=${fecha}&turno=${encodeURIComponent(turnoActual)}`;
+    const url = fecha==='hoy' ? 'api_presentes_hoy.php' : `api_presentes_hoy.php?fecha=${fecha}`;
     const resp = await fetch(url);
     if (!resp.ok) return;
     actualizarWidget(await resp.json());

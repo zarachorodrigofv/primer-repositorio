@@ -110,7 +110,13 @@ try {
             "INSERT INTO alumno_materia_seguimiento
                 (alumno_dni, materia_id, year_origen_id, year_seguimiento_id, clasificacion, asignado_por)
              VALUES (?, ?, ?, ?, ?, ?)
-             ON DUPLICATE KEY UPDATE clasificacion = VALUES(clasificacion), asignado_por = VALUES(asignado_por)"
+             ON DUPLICATE KEY UPDATE
+                estado_recursada = IF(VALUES(clasificacion) = 'intensificar', 'pendiente_inscripcion', estado_recursada),
+                curso_recursada_id = IF(VALUES(clasificacion) = 'intensificar', NULL, curso_recursada_id),
+                year_recursada_id = IF(VALUES(clasificacion) = 'intensificar', NULL, year_recursada_id),
+                recursada_actualizado_por = IF(VALUES(clasificacion) = 'intensificar', NULL, recursada_actualizado_por),
+                clasificacion = VALUES(clasificacion),
+                asignado_por = VALUES(asignado_por)"
         );
 
         foreach ($pendientesRecuperables as $materia) {
@@ -119,7 +125,7 @@ try {
             $stmtCheck->execute([$alumnoDni, $materia['materia_id'], $materia['year_id'], $yearId]);
             $actual = $stmtCheck->fetch(PDO::FETCH_ASSOC);
             if ($actual && (int)$actual['tiene_intentos'] && $actual['clasificacion'] !== $clasificacion) {
-                throw new InvalidArgumentException('No se puede cambiar la clasificación de una materia con intensificaciones registradas.');
+                throw new InvalidArgumentException('No se puede cambiar la clasificación después de iniciar una intensificación o recursada.');
             }
             $stmtSave->execute([
                 $alumnoDni,
@@ -165,6 +171,11 @@ try {
         } else {
             $estado = 'no_aprobada';
         }
+        if ($estado === 'aprobada') {
+            $notaValorativa = 'TEA';
+        } elseif ($estado === 'no_aprobada' && $notaValorativa === null) {
+            $notaValorativa = 'TEP';
+        }
 
                 $pdo->beginTransaction();
                 $stmt = $pdo->prepare(
@@ -196,6 +207,13 @@ try {
             trim((string)($payload['observaciones'] ?? '')) ?: null,
             (int)$_SESSION['dni'],
         ]);
+        $stmt = $pdo->prepare(
+            "UPDATE alumno_materia_seguimiento
+             SET estado_recursada = 'pendiente_inscripcion', curso_recursada_id = NULL,
+                 year_recursada_id = NULL, recursada_actualizado_por = NULL
+             WHERE id = ? AND clasificacion = 'intensificar'"
+        );
+        $stmt->execute([(int)$seguimientoId]);
         $pdo->commit();
         echo json_encode(['ok' => true, 'estado' => $estado]);
         exit;

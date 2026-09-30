@@ -230,8 +230,46 @@ while ($fila = $res->fetch_assoc()) { $preceptores[] = $fila; }
 
 // Materias
 $materias = [];
+$nombresMateriasCurriculares = [
+  'Análisis Matemático', 'Arte', 'Biología', 'Ciencia, tecnología y Sociedad',
+  'Ciencias Naturales', 'Ciencias Sociales', 'Conocimiento de los Materiales',
+  'Construcción de Ciudadanía', 'Construcción Ciudadana', 'Derecho del Trabajo',
+  'Derechos del trabajo', 'Desarrollo de productos de mobiliario', 'Dibujo Tecnológico',
+  'Diseño y Fabricación', 'Diseño y Montaje de Estructuras Mecánicas',
+  'Diseños y prototipos de mobiliario', 'Educación Artística', 'Educación Física',
+  'Electrotecnia', 'Emprendimientos Productivos y Desarrollo Local', 'Ergonomía',
+  'Fabricación automatizada en Carpintería y Muebles', 'Fabricación de Mobiliario',
+  'Filosofía', 'Física', 'Físico Química', 'Geografía', 'Historia',
+  'Historia del diseño y del mobiliario', 'Inglés',
+  'Instalación de Mobiliario y Estructuras de Madera', 'Instalaciones Eléctricas',
+  'Instalaciones Industriales', 'Instalaciones Industriales de Carpintería',
+  'Laboratorio de Ensayos Industriales', 'Lenguajes Tecnológicos', 'Literatura',
+  'Mantenimiento y Reparación de Equipos, Instalaciones Mecánicas',
+  'Máquinas Eléctricas', 'Máquinas y Elementos para Maniobra, Elevación y Transporte',
+  'Materiales y Procesos', 'Matemática', 'Matemática Aplicada',
+  'Matemática Ciclo Superior', 'Mecánica', 'Mecánica de los Fluidos', 'Mecatrónica',
+  'Metalurgia y Siderurgia', 'Organización de los Procesos productivos',
+  'Política y Ciudadanía', 'Prácticas del Lenguaje',
+  'Prácticas Profesionalizantes de Sector: Mecánico',
+  'Prácticas Profesionalizantes del Sector de la Madera y el Mueble',
+  'Procedimientos Técnicos', 'Procesamiento Mecánico',
+  'Proceso de fabricación de mobiliario', 'Proyecto y Diseño Mecánico', 'Química',
+  'Resistencia de Materiales y Cálculo de Elementos de Máquina',
+  'Salud y Adolescencia', 'Seguridad e Higiene y Protección Ambiental',
+  'Sistemas Mecánicos', 'Sistemas Tecnológicos', 'Tecnología de Control',
+  'Tecnología de la Representación', 'Tecnología de los Materiales',
+  'Tecnología Mecánica', 'Tecnologías y soluciones constructivas',
+  'Termodinámica y Máquinas Térmicas', 'Unión y Conformación de los Materiales'
+];
+$materiasPermitidas = array_fill_keys($nombresMateriasCurriculares, true);
+$nombresYaIncluidos = [];
 $res = $conn->query("SELECT id, nombre FROM materias ORDER BY nombre");
-while ($fila = $res->fetch_assoc()) { $materias[] = $fila; }
+while ($fila = $res->fetch_assoc()) {
+  if (isset($materiasPermitidas[$fila['nombre']]) && !isset($nombresYaIncluidos[$fila['nombre']])) {
+    $materias[] = $fila;
+    $nombresYaIncluidos[$fila['nombre']] = true;
+  }
+}
 
 // CURSOS SEGÚN ROL
 $cursos = [];
@@ -384,8 +422,9 @@ $nombreUsuario = $_SESSION['usuario'] ?? 'Usuario';
     .btn{background:#0f172a;color:white;border:none;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:14px;}
     .btn:hover{background:#1e293b;}
     .mensaje{margin-bottom:15px;padding:8px 12px;border-radius:8px;font-size:14px;display:<?php echo $mensaje ? 'block' : 'none'; ?>;background:#dcfce7;color:#166534;border:1px solid #bbf7d0;}
-    .search-wrap{display:flex;align-items:center;gap:8px;}
-    .search-btn{border:1px solid #cbd5e1;background:#fff;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:14px;}
+    .search-wrap{display:flex;align-items:center;gap:8px;width:100%;min-width:0;box-sizing:border-box;}
+    .search-wrap select{flex:1 1 0;width:0;min-width:0;}
+    .search-btn{flex:0 0 auto;border:1px solid #cbd5e1;background:#fff;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:14px;}
     .search-box{display:none;}
     .search-box input{width:100%;box-sizing:border-box;}
     .search-list{max-height:180px;overflow:auto;border:1px solid #e5e7eb;border-radius:8px;padding:6px;background:#fff;display:none;}

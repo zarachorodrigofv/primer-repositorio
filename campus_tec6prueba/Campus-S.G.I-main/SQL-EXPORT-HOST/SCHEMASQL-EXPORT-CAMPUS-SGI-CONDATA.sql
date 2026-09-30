@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Aug 16, 2026 at 10:56 PM
+-- Generation Time: Sep 30, 2026 at 03:04 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -41,11 +41,52 @@ CREATE TABLE `alumnos` (
 
 INSERT INTO `alumnos` (`alumno_dni`, `telefono`, `direccion`, `ausente`, `presente`) VALUES
 ('111222', '1112345678', 'Av.Falsa 123', 0, 0),
+('12345121', '12313451', '', 0, 0),
 ('12345678', '1187654321', 'Ok 123', 6, 12),
 ('23456789', '1234567891', 'lala 123', 2, 10),
 ('44555666', NULL, NULL, 0, 0),
 ('45262626', '', '', 0, 0),
 ('98765432', '1122223333', 'OK 123', 1, 2);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `alumno_materia_intensificacion`
+--
+
+CREATE TABLE `alumno_materia_intensificacion` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `seguimiento_id` int(10) UNSIGNED NOT NULL,
+  `instancia` varchar(80) NOT NULL,
+  `estado` enum('presentada','aprobada','no_aprobada') NOT NULL DEFAULT 'presentada',
+  `nota` decimal(4,2) DEFAULT NULL,
+  `nota_valorativa` enum('TEP','TEA','TED') DEFAULT NULL,
+  `observaciones` text DEFAULT NULL,
+  `registrado_por` int(10) UNSIGNED DEFAULT NULL,
+  `fecha` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `alumno_materia_seguimiento`
+--
+
+CREATE TABLE `alumno_materia_seguimiento` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `alumno_dni` int(10) UNSIGNED NOT NULL,
+  `materia_id` int(10) UNSIGNED NOT NULL,
+  `year_origen_id` int(11) NOT NULL,
+  `year_seguimiento_id` int(11) NOT NULL,
+  `clasificacion` enum('sin_clasificar','intensificar','recursar') NOT NULL DEFAULT 'sin_clasificar',
+  `estado_recursada` enum('pendiente_inscripcion','cursando') NOT NULL DEFAULT 'pendiente_inscripcion',
+  `curso_recursada_id` int(11) DEFAULT NULL,
+  `year_recursada_id` int(11) DEFAULT NULL,
+  `recursada_actualizado_por` int(10) UNSIGNED DEFAULT NULL,
+  `asignado_por` int(10) UNSIGNED DEFAULT NULL,
+  `creado_en` timestamp NOT NULL DEFAULT current_timestamp(),
+  `actualizado_en` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -71,8 +112,48 @@ CREATE TABLE `asignado_alumno` (
 INSERT INTO `asignado_alumno` (`id`, `alumno_dni`, `curso_id`, `year_escolar_id`, `estado`, `fecha_inscripcion`, `fecha_baja`, `motivo_baja`) VALUES
 (3, '98765432', 1, 1, 'activo', '2025-11-17', NULL, NULL),
 (4, '23456789', 1, 1, 'activo', '2025-11-27', NULL, NULL),
-(5, '12345678', 2, 1, 'activo', '2025-11-27', NULL, NULL),
-(6, '45262626', 21, 1, 'activo', '2026-06-10', NULL, NULL);
+(5, '12345678', 2, 2, 'activo', '2025-11-27', NULL, NULL),
+(6, '45262626', 21, 1, 'activo', '2026-06-10', NULL, NULL),
+(10, '12345121', 1, 2, 'activo', '2026-09-29', NULL, NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `asignado_alumno_turno`
+--
+
+CREATE TABLE `asignado_alumno_turno` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `alumno_dni` int(10) UNSIGNED NOT NULL,
+  `curso_id` int(11) NOT NULL,
+  `year_escolar_id` int(11) NOT NULL,
+  `turno_id` int(10) UNSIGNED NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `asignado_alumno_turno`
+--
+
+INSERT INTO `asignado_alumno_turno` (`id`, `alumno_dni`, `curso_id`, `year_escolar_id`, `turno_id`) VALUES
+(6, 12345121, 1, 1, 3),
+(92, 12345121, 1, 2, 3),
+(93, 12345121, 1, 2, 9),
+(91, 12345121, 1, 2, 578),
+(14, 12345678, 2, 2, 5),
+(31, 12345678, 2, 2, 29),
+(78, 12345678, 2, 2, 585),
+(4, 13414123, 1, 1, 1),
+(2, 23456789, 1, 1, 1),
+(22, 23456789, 1, 1, 3),
+(29, 23456789, 1, 1, 9),
+(77, 23456789, 1, 1, 578),
+(33, 45262626, 21, 1, 90),
+(34, 45262626, 21, 1, 91),
+(79, 45262626, 21, 1, 606),
+(1, 98765432, 1, 1, 1),
+(20, 98765432, 1, 1, 3),
+(27, 98765432, 1, 1, 9),
+(76, 98765432, 1, 1, 578);
 
 -- --------------------------------------------------------
 
@@ -96,6 +177,7 @@ CREATE TABLE `asistencia` (
   `id` int(11) NOT NULL,
   `alumno_dni` varchar(20) NOT NULL,
   `fecha` date NOT NULL,
+  `turno_id` int(10) UNSIGNED DEFAULT NULL,
   `estado` enum('presente','ausente','tarde','justificado') NOT NULL,
   `motivo_justificado` text DEFAULT NULL COMMENT 'Motivo cuando estado = justificado'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -104,90 +186,128 @@ CREATE TABLE `asistencia` (
 -- Dumping data for table `asistencia`
 --
 
-INSERT INTO `asistencia` (`id`, `alumno_dni`, `fecha`, `estado`, `motivo_justificado`) VALUES
-(4, '44555666', '2025-03-01', 'presente', NULL),
-(5, '44555666', '2025-03-02', 'presente', NULL),
-(6, '44555666', '2025-03-03', 'ausente', NULL),
-(7, '44555666', '2025-01-01', 'presente', NULL),
-(60, '44555666', '2025-11-01', 'presente', NULL),
-(61, '44555666', '2025-11-02', 'ausente', NULL),
-(62, '44555666', '2025-11-03', 'ausente', NULL),
-(63, '44555666', '2025-11-05', 'presente', NULL),
-(64, '44555666', '2025-11-06', 'ausente', NULL),
-(65, '44555666', '2025-11-07', 'presente', NULL),
-(66, '44555666', '2025-11-09', 'ausente', NULL),
-(67, '44555666', '2025-11-18', 'ausente', NULL),
-(69, '98765432', '2025-11-01', 'presente', NULL),
-(82, '23456789', '2026-06-01', 'justificado', 'hhoolaa'),
-(83, '98765432', '2026-06-01', 'tarde', NULL),
-(271, '23456789', '2026-03-31', 'presente', NULL),
-(272, '98765432', '2026-03-31', 'presente', NULL),
-(410, '23456789', '2026-04-08', 'presente', NULL),
-(411, '12345678', '2026-07-08', 'justificado', 'k'),
-(412, '45262626', '2026-07-07', 'presente', NULL),
-(413, '45262626', '2026-07-08', 'presente', NULL),
-(502, '23456789', '2026-07-01', 'ausente', NULL),
-(503, '23456789', '2026-07-06', 'ausente', NULL),
-(504, '23456789', '2026-07-07', 'presente', NULL),
-(505, '23456789', '2026-07-08', 'ausente', NULL),
-(506, '23456789', '2026-07-09', 'presente', NULL),
-(507, '23456789', '2026-07-10', 'justificado', 'k'),
-(508, '23456789', '2026-07-13', 'presente', NULL),
-(509, '23456789', '2026-07-14', 'presente', NULL),
-(510, '23456789', '2026-07-15', 'presente', NULL),
-(511, '23456789', '2026-07-16', 'ausente', NULL),
-(512, '23456789', '2026-07-17', 'presente', NULL),
-(513, '23456789', '2026-07-20', 'presente', NULL),
-(514, '23456789', '2026-07-21', 'presente', NULL),
-(515, '23456789', '2026-07-22', 'presente', NULL),
-(516, '23456789', '2026-07-23', 'presente', NULL),
-(517, '23456789', '2026-07-24', 'tarde', NULL),
-(518, '23456789', '2026-07-27', 'tarde', NULL),
-(519, '23456789', '2026-07-28', 'presente', NULL),
-(520, '23456789', '2026-07-29', 'presente', NULL),
-(521, '23456789', '2026-07-30', 'presente', NULL),
-(522, '23456789', '2026-07-31', 'presente', NULL),
-(523, '98765432', '2026-07-01', 'ausente', NULL),
-(524, '98765432', '2026-07-02', 'presente', NULL),
-(525, '98765432', '2026-07-03', 'tarde', NULL),
-(526, '98765432', '2026-07-06', 'presente', NULL),
-(527, '98765432', '2026-07-07', 'presente', NULL),
-(528, '98765432', '2026-07-08', 'presente', NULL),
-(529, '98765432', '2026-07-09', 'ausente', NULL),
-(530, '98765432', '2026-07-10', 'presente', NULL),
-(531, '98765432', '2026-07-13', 'presente', NULL),
-(532, '98765432', '2026-07-14', 'ausente', NULL),
-(533, '98765432', '2026-07-15', 'ausente', NULL),
-(534, '98765432', '2026-07-16', 'presente', NULL),
-(535, '98765432', '2026-07-17', 'presente', NULL),
-(536, '98765432', '2026-07-20', 'presente', NULL),
-(537, '98765432', '2026-07-21', 'presente', NULL),
-(538, '98765432', '2026-07-22', 'ausente', NULL),
-(539, '98765432', '2026-07-23', 'ausente', NULL),
-(540, '98765432', '2026-07-24', 'ausente', NULL),
-(541, '98765432', '2026-07-27', 'tarde', NULL),
-(542, '98765432', '2026-07-28', 'presente', NULL),
-(543, '98765432', '2026-07-29', 'presente', NULL),
-(544, '98765432', '2026-07-30', 'presente', NULL),
-(545, '98765432', '2026-07-31', 'presente', NULL),
-(547, '23456789', '2026-04-22', 'presente', NULL),
-(548, '98765432', '2026-04-22', 'ausente', NULL),
-(549, '23456789', '2026-04-23', 'ausente', NULL),
-(565, '23456789', '2026-08-03', 'presente', NULL),
-(566, '23456789', '2026-08-04', 'presente', NULL),
-(567, '23456789', '2026-08-05', 'presente', NULL),
-(568, '23456789', '2026-08-07', 'presente', NULL),
-(569, '23456789', '2026-08-10', 'presente', NULL),
-(570, '23456789', '2026-08-13', 'presente', NULL),
-(571, '23456789', '2026-08-18', 'presente', NULL),
-(572, '23456789', '2026-08-19', 'presente', NULL),
-(573, '98765432', '2026-08-05', 'presente', NULL),
-(574, '98765432', '2026-08-06', 'presente', NULL),
-(575, '98765432', '2026-08-12', 'presente', NULL),
-(576, '98765432', '2026-08-14', 'presente', NULL),
-(577, '98765432', '2026-08-17', 'presente', NULL),
-(578, '98765432', '2026-08-18', 'presente', NULL),
-(579, '98765432', '2026-08-19', 'presente', NULL);
+INSERT INTO `asistencia` (`id`, `alumno_dni`, `fecha`, `turno_id`, `estado`, `motivo_justificado`) VALUES
+(4, '44555666', '2025-03-01', NULL, 'presente', NULL),
+(5, '44555666', '2025-03-02', NULL, 'presente', NULL),
+(6, '44555666', '2025-03-03', NULL, 'ausente', NULL),
+(7, '44555666', '2025-01-01', NULL, 'presente', NULL),
+(60, '44555666', '2025-11-01', NULL, 'presente', NULL),
+(61, '44555666', '2025-11-02', NULL, 'ausente', NULL),
+(62, '44555666', '2025-11-03', NULL, 'ausente', NULL),
+(63, '44555666', '2025-11-05', NULL, 'presente', NULL),
+(64, '44555666', '2025-11-06', NULL, 'ausente', NULL),
+(65, '44555666', '2025-11-07', NULL, 'presente', NULL),
+(66, '44555666', '2025-11-09', NULL, 'ausente', NULL),
+(67, '44555666', '2025-11-18', NULL, 'ausente', NULL),
+(69, '98765432', '2025-11-01', 1, 'presente', NULL),
+(82, '23456789', '2026-06-01', 1, 'justificado', 'hhoolaa'),
+(83, '98765432', '2026-06-01', 1, 'tarde', NULL),
+(271, '23456789', '2026-03-31', 1, 'presente', NULL),
+(272, '98765432', '2026-03-31', 1, 'presente', NULL),
+(410, '23456789', '2026-04-08', 1, 'presente', NULL),
+(411, '12345678', '2026-07-08', NULL, 'justificado', 'k'),
+(412, '45262626', '2026-07-07', NULL, 'presente', NULL),
+(413, '45262626', '2026-07-08', NULL, 'presente', NULL),
+(502, '23456789', '2026-07-01', 1, 'ausente', NULL),
+(503, '23456789', '2026-07-06', 1, 'ausente', NULL),
+(504, '23456789', '2026-07-07', 1, 'presente', NULL),
+(505, '23456789', '2026-07-08', 1, 'ausente', NULL),
+(506, '23456789', '2026-07-09', 1, 'presente', NULL),
+(507, '23456789', '2026-07-10', 1, 'justificado', 'k'),
+(508, '23456789', '2026-07-13', 1, 'presente', NULL),
+(509, '23456789', '2026-07-14', 1, 'presente', NULL),
+(510, '23456789', '2026-07-15', 1, 'presente', NULL),
+(511, '23456789', '2026-07-16', 1, 'ausente', NULL),
+(512, '23456789', '2026-07-17', 1, 'presente', NULL),
+(513, '23456789', '2026-07-20', 1, 'presente', NULL),
+(514, '23456789', '2026-07-21', 1, 'presente', NULL),
+(515, '23456789', '2026-07-22', 1, 'presente', NULL),
+(516, '23456789', '2026-07-23', 1, 'presente', NULL),
+(517, '23456789', '2026-07-24', 1, 'tarde', NULL),
+(518, '23456789', '2026-07-27', 1, 'tarde', NULL),
+(519, '23456789', '2026-07-28', 1, 'presente', NULL),
+(520, '23456789', '2026-07-29', 1, 'presente', NULL),
+(521, '23456789', '2026-07-30', 1, 'presente', NULL),
+(522, '23456789', '2026-07-31', 1, 'presente', NULL),
+(523, '98765432', '2026-07-01', 1, 'ausente', NULL),
+(524, '98765432', '2026-07-02', 1, 'presente', NULL),
+(525, '98765432', '2026-07-03', 1, 'tarde', NULL),
+(526, '98765432', '2026-07-06', 1, 'presente', NULL),
+(527, '98765432', '2026-07-07', 1, 'presente', NULL),
+(528, '98765432', '2026-07-08', 1, 'presente', NULL),
+(529, '98765432', '2026-07-09', 1, 'ausente', NULL),
+(530, '98765432', '2026-07-10', 1, 'presente', NULL),
+(531, '98765432', '2026-07-13', 1, 'presente', NULL),
+(532, '98765432', '2026-07-14', 1, 'ausente', NULL),
+(533, '98765432', '2026-07-15', 1, 'ausente', NULL),
+(534, '98765432', '2026-07-16', 1, 'presente', NULL),
+(535, '98765432', '2026-07-17', 1, 'presente', NULL),
+(536, '98765432', '2026-07-20', 1, 'presente', NULL),
+(537, '98765432', '2026-07-21', 1, 'presente', NULL),
+(538, '98765432', '2026-07-22', 1, 'ausente', NULL),
+(539, '98765432', '2026-07-23', 1, 'ausente', NULL),
+(540, '98765432', '2026-07-24', 1, 'ausente', NULL),
+(541, '98765432', '2026-07-27', 1, 'tarde', NULL),
+(542, '98765432', '2026-07-28', 1, 'presente', NULL),
+(543, '98765432', '2026-07-29', 1, 'presente', NULL),
+(544, '98765432', '2026-07-30', 1, 'presente', NULL),
+(545, '98765432', '2026-07-31', 1, 'presente', NULL),
+(547, '23456789', '2026-04-22', 1, 'presente', NULL),
+(548, '98765432', '2026-04-22', 1, 'ausente', NULL),
+(549, '23456789', '2026-04-23', 1, 'ausente', NULL),
+(565, '23456789', '2026-08-03', 1, 'presente', NULL),
+(566, '23456789', '2026-08-04', 1, 'presente', NULL),
+(567, '23456789', '2026-08-05', 1, 'presente', NULL),
+(568, '23456789', '2026-08-07', 1, 'presente', NULL),
+(569, '23456789', '2026-08-10', 1, 'presente', NULL),
+(570, '23456789', '2026-08-13', 1, 'presente', NULL),
+(571, '23456789', '2026-08-18', 1, 'presente', NULL),
+(572, '23456789', '2026-08-19', 1, 'presente', NULL),
+(573, '98765432', '2026-08-05', 1, 'presente', NULL),
+(574, '98765432', '2026-08-06', 1, 'presente', NULL),
+(575, '98765432', '2026-08-12', 1, 'presente', NULL),
+(576, '98765432', '2026-08-14', 1, 'presente', NULL),
+(577, '98765432', '2026-08-17', 1, 'presente', NULL),
+(578, '98765432', '2026-08-18', 1, 'presente', NULL),
+(579, '98765432', '2026-08-19', 1, 'presente', NULL),
+(581, '45262626', '2026-08-03', NULL, 'presente', NULL),
+(582, '45262626', '2026-08-04', NULL, 'presente', NULL),
+(583, '45262626', '2026-08-06', NULL, 'presente', NULL),
+(584, '45262626', '2026-08-07', NULL, 'presente', NULL),
+(585, '45262626', '2026-08-10', NULL, 'ausente', NULL),
+(586, '45262626', '2026-08-12', NULL, 'ausente', NULL),
+(587, '45262626', '2026-08-13', NULL, 'ausente', NULL),
+(588, '45262626', '2026-08-14', NULL, 'justificado', 'enfermo'),
+(589, '45262626', '2026-08-17', NULL, 'presente', NULL),
+(590, '45262626', '2026-08-18', NULL, 'presente', NULL),
+(591, '45262626', '2026-08-19', NULL, 'presente', NULL),
+(592, '45262626', '2026-08-20', NULL, 'ausente', NULL),
+(593, '45262626', '2026-08-21', NULL, 'tarde', NULL),
+(594, '45262626', '2026-08-24', NULL, 'presente', NULL),
+(595, '45262626', '2026-08-25', NULL, 'ausente', NULL),
+(596, '45262626', '2026-08-26', NULL, 'presente', NULL),
+(597, '45262626', '2026-08-27', NULL, 'presente', NULL),
+(598, '45262626', '2026-08-28', NULL, 'presente', NULL),
+(599, '45262626', '2026-08-31', NULL, 'presente', NULL),
+(600, '23456789', '2026-09-01', 1, 'presente', NULL),
+(601, '23456789', '2026-09-02', 1, 'presente', NULL),
+(602, '23456789', '2026-09-03', 1, 'presente', NULL),
+(620, '12345121', '2026-09-01', 2, 'presente', NULL),
+(621, '12345121', '2026-09-03', 2, 'presente', NULL),
+(622, '12345121', '2026-09-04', 2, 'presente', NULL),
+(623, '12345121', '2026-09-07', 2, 'presente', NULL),
+(624, '12345121', '2026-09-08', 2, 'presente', NULL),
+(625, '12345121', '2026-09-09', 2, 'presente', NULL),
+(627, '12345121', '2026-09-01', 3, 'presente', NULL),
+(628, '12345121', '2026-09-02', 3, 'ausente', NULL),
+(629, '12345121', '2026-09-03', 3, 'presente', NULL),
+(630, '12345121', '2026-09-04', 3, 'presente', NULL),
+(639, '12345121', '2026-09-07', 3, 'presente', NULL),
+(640, '12345121', '2026-09-08', 3, 'presente', NULL),
+(641, '12345121', '2026-09-09', 3, 'presente', NULL),
+(642, '12345121', '2026-09-10', 3, 'presente', NULL),
+(643, '12345121', '2026-09-11', 3, 'justificado', 'kjkj'),
+(653, '12345121', '2026-09-14', 3, 'tarde', NULL);
 
 -- --------------------------------------------------------
 
@@ -199,64 +319,63 @@ CREATE TABLE `curso` (
   `id` int(11) NOT NULL,
   `curso_year_id` int(11) NOT NULL,
   `curso_division_id` int(11) NOT NULL,
-  `modalidad_id` int(11) DEFAULT NULL COMMENT 'NULL = Ciclo basico/ninguna modalidad',
-  `turno` enum('mañana','tarde','vespertino') DEFAULT NULL COMMENT 'Turno del curso'
+  `modalidad_id` int(11) DEFAULT NULL COMMENT 'NULL = Ciclo basico/ninguna modalidad'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='CURSO_YEAR + CURSO_DIVISION = CURSO';
 
 --
 -- Dumping data for table `curso`
 --
 
-INSERT INTO `curso` (`id`, `curso_year_id`, `curso_division_id`, `modalidad_id`, `turno`) VALUES
-(1, 1, 1, NULL, NULL),
-(2, 1, 2, NULL, NULL),
-(15, 1, 3, NULL, NULL),
-(18, 1, 4, NULL, NULL),
-(21, 1, 5, NULL, NULL),
-(24, 1, 6, NULL, NULL),
-(27, 1, 7, NULL, NULL),
-(10, 2, 1, NULL, NULL),
-(13, 2, 2, NULL, NULL),
-(16, 2, 3, NULL, NULL),
-(19, 2, 4, NULL, NULL),
-(22, 2, 5, NULL, NULL),
-(25, 2, 6, NULL, NULL),
-(28, 2, 7, NULL, NULL),
-(4, 3, 1, NULL, NULL),
-(14, 3, 2, NULL, NULL),
-(17, 3, 3, NULL, NULL),
-(20, 3, 4, NULL, NULL),
-(23, 3, 5, NULL, NULL),
-(26, 3, 6, NULL, NULL),
-(29, 3, 7, NULL, NULL),
-(40, 4, 1, 4, NULL),
-(44, 4, 2, 4, NULL),
-(79, 4, 3, 5, NULL),
-(83, 4, 4, 5, NULL),
-(87, 4, 5, 5, NULL),
-(60, 4, 6, 4, NULL),
-(64, 4, 7, 4, NULL),
-(41, 5, 1, 4, NULL),
-(76, 5, 2, 5, NULL),
-(49, 5, 3, 4, NULL),
-(84, 5, 4, 5, NULL),
-(57, 5, 5, 4, NULL),
-(92, 5, 6, 5, NULL),
-(65, 5, 7, 4, NULL),
-(73, 6, 1, 5, NULL),
-(46, 6, 2, 4, NULL),
-(81, 6, 3, 5, NULL),
-(85, 6, 4, 5, NULL),
-(89, 6, 5, 5, NULL),
-(62, 6, 6, 4, NULL),
-(66, 6, 7, 4, NULL),
-(74, 7, 1, 5, NULL),
-(78, 7, 2, 5, NULL),
-(82, 7, 3, 5, NULL),
-(55, 7, 4, 4, NULL),
-(59, 7, 5, 4, NULL),
-(94, 7, 6, 5, NULL),
-(98, 7, 7, 5, NULL);
+INSERT INTO `curso` (`id`, `curso_year_id`, `curso_division_id`, `modalidad_id`) VALUES
+(1, 1, 1, NULL),
+(2, 1, 2, NULL),
+(15, 1, 3, NULL),
+(18, 1, 4, NULL),
+(21, 1, 5, NULL),
+(24, 1, 6, NULL),
+(27, 1, 7, NULL),
+(10, 2, 1, NULL),
+(13, 2, 2, NULL),
+(16, 2, 3, NULL),
+(19, 2, 4, NULL),
+(22, 2, 5, NULL),
+(25, 2, 6, NULL),
+(28, 2, 7, NULL),
+(4, 3, 1, NULL),
+(14, 3, 2, NULL),
+(17, 3, 3, NULL),
+(20, 3, 4, NULL),
+(23, 3, 5, NULL),
+(26, 3, 6, NULL),
+(29, 3, 7, NULL),
+(40, 4, 1, 4),
+(44, 4, 2, 4),
+(79, 4, 3, 5),
+(83, 4, 4, 5),
+(87, 4, 5, 5),
+(60, 4, 6, 4),
+(64, 4, 7, 4),
+(41, 5, 1, 4),
+(76, 5, 2, 5),
+(49, 5, 3, 4),
+(84, 5, 4, 5),
+(57, 5, 5, 4),
+(92, 5, 6, 5),
+(65, 5, 7, 4),
+(73, 6, 1, 5),
+(46, 6, 2, 4),
+(81, 6, 3, 5),
+(85, 6, 4, 5),
+(89, 6, 5, 5),
+(62, 6, 6, 4),
+(66, 6, 7, 4),
+(74, 7, 1, 5),
+(78, 7, 2, 5),
+(82, 7, 3, 5),
+(55, 7, 4, 4),
+(59, 7, 5, 4),
+(94, 7, 6, 5),
+(98, 7, 7, 5);
 
 -- --------------------------------------------------------
 
@@ -301,7 +420,176 @@ CREATE TABLE `curso_materia` (
 
 INSERT INTO `curso_materia` (`id`, `curso_id`, `materia_id`, `year_escolar_id`) VALUES
 (2, 1, 85, 1),
-(3, 2, 86, 1);
+(5, 1, 85, 2),
+(3, 2, 86, 1),
+(6, 2, 86, 2),
+(4, 21, 1, 1),
+(7, 21, 1, 2);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `curso_turno`
+--
+
+CREATE TABLE `curso_turno` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `curso_id` int(11) NOT NULL,
+  `turno` enum('mañana','tarde','vespertino') NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `curso_turno`
+--
+
+INSERT INTO `curso_turno` (`id`, `curso_id`, `turno`) VALUES
+(578, 1, 'mañana'),
+(3, 1, 'tarde'),
+(9, 1, 'vespertino'),
+(585, 2, 'mañana'),
+(5, 2, 'tarde'),
+(29, 2, 'vespertino'),
+(579, 4, 'mañana'),
+(11, 4, 'tarde'),
+(12, 4, 'vespertino'),
+(580, 10, 'mañana'),
+(14, 10, 'tarde'),
+(15, 10, 'vespertino'),
+(586, 13, 'mañana'),
+(31, 13, 'tarde'),
+(32, 13, 'vespertino'),
+(587, 14, 'mañana'),
+(34, 14, 'tarde'),
+(35, 14, 'vespertino'),
+(592, 15, 'mañana'),
+(49, 15, 'tarde'),
+(7, 15, 'vespertino'),
+(593, 16, 'mañana'),
+(51, 16, 'tarde'),
+(52, 16, 'vespertino'),
+(594, 17, 'mañana'),
+(54, 17, 'tarde'),
+(55, 17, 'vespertino'),
+(599, 18, 'mañana'),
+(69, 18, 'tarde'),
+(70, 18, 'vespertino'),
+(600, 19, 'mañana'),
+(72, 19, 'tarde'),
+(73, 19, 'vespertino'),
+(601, 20, 'mañana'),
+(75, 20, 'tarde'),
+(76, 20, 'vespertino'),
+(606, 21, 'mañana'),
+(90, 21, 'tarde'),
+(91, 21, 'vespertino'),
+(607, 22, 'mañana'),
+(93, 22, 'tarde'),
+(94, 22, 'vespertino'),
+(608, 23, 'mañana'),
+(96, 23, 'tarde'),
+(97, 23, 'vespertino'),
+(613, 24, 'mañana'),
+(111, 24, 'tarde'),
+(112, 24, 'vespertino'),
+(614, 25, 'mañana'),
+(114, 25, 'tarde'),
+(115, 25, 'vespertino'),
+(615, 26, 'mañana'),
+(117, 26, 'tarde'),
+(118, 26, 'vespertino'),
+(620, 27, 'mañana'),
+(132, 27, 'tarde'),
+(133, 27, 'vespertino'),
+(621, 28, 'mañana'),
+(135, 28, 'tarde'),
+(136, 28, 'vespertino'),
+(622, 29, 'mañana'),
+(138, 29, 'tarde'),
+(139, 29, 'vespertino'),
+(581, 40, 'mañana'),
+(17, 40, 'tarde'),
+(18, 40, 'vespertino'),
+(582, 41, 'mañana'),
+(20, 41, 'tarde'),
+(21, 41, 'vespertino'),
+(588, 44, 'mañana'),
+(37, 44, 'tarde'),
+(38, 44, 'vespertino'),
+(589, 46, 'mañana'),
+(40, 46, 'tarde'),
+(41, 46, 'vespertino'),
+(595, 49, 'mañana'),
+(57, 49, 'tarde'),
+(58, 49, 'vespertino'),
+(602, 55, 'mañana'),
+(78, 55, 'tarde'),
+(79, 55, 'vespertino'),
+(609, 57, 'mañana'),
+(99, 57, 'tarde'),
+(100, 57, 'vespertino'),
+(610, 59, 'mañana'),
+(102, 59, 'tarde'),
+(103, 59, 'vespertino'),
+(616, 60, 'mañana'),
+(120, 60, 'tarde'),
+(121, 60, 'vespertino'),
+(617, 62, 'mañana'),
+(123, 62, 'tarde'),
+(124, 62, 'vespertino'),
+(623, 64, 'mañana'),
+(141, 64, 'tarde'),
+(142, 64, 'vespertino'),
+(624, 65, 'mañana'),
+(144, 65, 'tarde'),
+(145, 65, 'vespertino'),
+(625, 66, 'mañana'),
+(147, 66, 'tarde'),
+(148, 66, 'vespertino'),
+(583, 73, 'mañana'),
+(23, 73, 'tarde'),
+(24, 73, 'vespertino'),
+(584, 74, 'mañana'),
+(26, 74, 'tarde'),
+(27, 74, 'vespertino'),
+(590, 76, 'mañana'),
+(43, 76, 'tarde'),
+(44, 76, 'vespertino'),
+(591, 78, 'mañana'),
+(46, 78, 'tarde'),
+(47, 78, 'vespertino'),
+(596, 79, 'mañana'),
+(60, 79, 'tarde'),
+(61, 79, 'vespertino'),
+(597, 81, 'mañana'),
+(63, 81, 'tarde'),
+(64, 81, 'vespertino'),
+(598, 82, 'mañana'),
+(66, 82, 'tarde'),
+(67, 82, 'vespertino'),
+(603, 83, 'mañana'),
+(81, 83, 'tarde'),
+(82, 83, 'vespertino'),
+(604, 84, 'mañana'),
+(84, 84, 'tarde'),
+(85, 84, 'vespertino'),
+(605, 85, 'mañana'),
+(87, 85, 'tarde'),
+(88, 85, 'vespertino'),
+(611, 87, 'mañana'),
+(105, 87, 'tarde'),
+(106, 87, 'vespertino'),
+(612, 89, 'mañana'),
+(108, 89, 'tarde'),
+(109, 89, 'vespertino'),
+(618, 92, 'mañana'),
+(126, 92, 'tarde'),
+(127, 92, 'vespertino'),
+(619, 94, 'mañana'),
+(129, 94, 'tarde'),
+(130, 94, 'vespertino'),
+(626, 98, 'mañana'),
+(150, 98, 'tarde'),
+(151, 98, 'vespertino');
 
 -- --------------------------------------------------------
 
@@ -345,7 +633,11 @@ CREATE TABLE `docente_materia_curso` (
 
 INSERT INTO `docente_materia_curso` (`id`, `maestro_dni`, `curso_materia_id`) VALUES
 (1, 33222111, 2),
-(2, 33222111, 3);
+(2, 33222111, 3),
+(3, 33222111, 4),
+(4, 33222111, 5),
+(5, 33222111, 6),
+(6, 33222111, 7);
 
 -- --------------------------------------------------------
 
@@ -359,6 +651,15 @@ CREATE TABLE `familia_alumno` (
   `alumno_dni` int(11) NOT NULL,
   `parentesco` varchar(60) NOT NULL DEFAULT ''
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `familia_alumno`
+--
+
+INSERT INTO `familia_alumno` (`id`, `familia_dni`, `alumno_dni`, `parentesco`) VALUES
+(1, 77888999, 45262626, 'Padre'),
+(2, 77888999, 23456789, 'Tutor'),
+(3, 12345245, 12345121, 'Tutor');
 
 -- --------------------------------------------------------
 
@@ -432,7 +733,61 @@ INSERT INTO `materias` (`id`, `nombre`) VALUES
 (97, 'Prácticas del Lenguaje'),
 (98, 'Procedimientos Técnicos'),
 (99, 'Lenguajes Tecnológicos'),
-(100, 'Sistemas Tecnológicos');
+(100, 'Sistemas Tecnológicos'),
+(101, 'Análisis Matemático'),
+(102, 'Arte'),
+(103, 'Ciencia, tecnología y Sociedad'),
+(104, 'Conocimiento de los Materiales'),
+(105, 'Derecho del Trabajo'),
+(106, 'Derechos del trabajo'),
+(107, 'Desarrollo de productos de mobiliario'),
+(108, 'Dibujo Tecnológico'),
+(109, 'Diseño y Fabricación'),
+(110, 'Diseño y Montaje de Estructuras Mecánicas'),
+(111, 'Diseños y prototipos de mobiliario'),
+(112, 'Electrotecnia'),
+(113, 'Emprendimientos Productivos y Desarrollo Local'),
+(114, 'Ergonomía'),
+(115, 'Fabricación automatizada en Carpintería y Muebles'),
+(116, 'Fabricación de Mobiliario'),
+(117, 'Filosofía'),
+(118, 'Física'),
+(119, 'Historia del diseño y del mobiliario'),
+(120, 'Instalación de Mobiliario y Estructuras de Madera'),
+(121, 'Instalaciones Eléctricas'),
+(122, 'Instalaciones Industriales'),
+(123, 'Instalaciones Industriales de Carpintería'),
+(124, 'Laboratorio de Ensayos Industriales'),
+(125, 'Literatura'),
+(126, 'Mantenimiento y Reparación de Equipos, Instalaciones Mecánicas'),
+(127, 'Máquinas Eléctricas'),
+(128, 'Máquinas y Elementos para Maniobra, Elevación y Transporte'),
+(129, 'Materiales y Procesos'),
+(130, 'Matemática Aplicada'),
+(131, 'Matemática Ciclo Superior'),
+(132, 'Mecánica'),
+(133, 'Mecánica de los Fluidos'),
+(134, 'Mecatrónica'),
+(135, 'Metalurgia y Siderurgia'),
+(136, 'Organización de los Procesos productivos'),
+(137, 'Política y Ciudadanía'),
+(138, 'Prácticas Profesionalizantes de Sector: Mecánico'),
+(139, 'Prácticas Profesionalizantes del Sector de la Madera y el Mueble'),
+(140, 'Procesamiento Mecánico'),
+(141, 'Proceso de fabricación de mobiliario'),
+(142, 'Proyecto y Diseño Mecánico'),
+(143, 'Química'),
+(144, 'Resistencia de Materiales y Cálculo de Elementos de Máquina'),
+(145, 'Salud y Adolescencia'),
+(146, 'Seguridad e Higiene y Protección Ambiental'),
+(147, 'Sistemas Mecánicos'),
+(148, 'Tecnología de Control'),
+(149, 'Tecnología de la Representación'),
+(150, 'Tecnología de los Materiales'),
+(151, 'Tecnología Mecánica'),
+(152, 'Tecnologías y soluciones constructivas'),
+(153, 'Termodinámica y Máquinas Térmicas'),
+(154, 'Unión y Conformación de los Materiales');
 
 -- --------------------------------------------------------
 
@@ -549,26 +904,34 @@ CREATE TABLE `notas_detalle` (
   `nota_valorativa` enum('TEP','TEA','TED') DEFAULT NULL,
   `nota_numerica` decimal(4,2) DEFAULT NULL,
   `observaciones` text DEFAULT NULL,
-  `nota_concepto` varchar(255) DEFAULT NULL,
-  `nota_tp` varchar(255) DEFAULT NULL,
-  `nota_examen` varchar(255) DEFAULT NULL,
   `intens_diciembre` varchar(255) DEFAULT NULL,
   `intens_febrero` varchar(255) DEFAULT NULL,
   `intens_marzo` varchar(255) DEFAULT NULL,
-  `nota_final` varchar(255) DEFAULT NULL
+  `nota_final` varchar(255) DEFAULT NULL,
+  `nota_concepto` varchar(255) DEFAULT NULL,
+  `nota_tp` varchar(255) DEFAULT NULL,
+  `nota_examen` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `notas_detalle`
 --
 
-INSERT INTO `notas_detalle` (`id`, `alumno_dni`, `materia_id`, `year_escolar_id`, `cuatrimestre`, `nota_valorativa`, `nota_numerica`, `observaciones`, `intens_diciembre`, `intens_febrero`, `intens_marzo`, `nota_final`) VALUES
-(135, 98765432, 1, 1, '1', 'TEA', 7.00, NULL, NULL, NULL, NULL, NULL),
-(136, 98765432, 1, 1, '2', 'TEA', 7.00, NULL, NULL, NULL, NULL, NULL),
-(147, 98765432, 85, 1, '1', 'TEA', 8.00, 'Buen Alumno', NULL, NULL, NULL, NULL),
-(148, 98765432, 85, 1, '2', 'TEA', 10.00, 'Buen Alumno', NULL, NULL, NULL, '9'),
-(151, 23456789, 85, 1, '1', 'TEA', 10.00, 'xd', 'TEA', 'TEA', 'TEA', NULL),
-(152, 23456789, 85, 1, '2', 'TEA', 8.00, 'xd', 'TEA', 'TEA', 'TEA', '9');
+INSERT INTO `notas_detalle` (`id`, `alumno_dni`, `materia_id`, `year_escolar_id`, `cuatrimestre`, `nota_valorativa`, `nota_numerica`, `observaciones`, `intens_diciembre`, `intens_febrero`, `intens_marzo`, `nota_final`, `nota_concepto`, `nota_tp`, `nota_examen`) VALUES
+(135, 98765432, 1, 1, '1', 'TEA', 7.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+(136, 98765432, 1, 1, '2', 'TEA', 7.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+(147, 98765432, 85, 1, '1', 'TEA', 8.00, 'Buen Alumno', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+(148, 98765432, 85, 1, '2', 'TEA', 10.00, 'Buen Alumno', NULL, NULL, NULL, '9', NULL, NULL, NULL),
+(151, 23456789, 85, 1, '1', 'TEA', 10.00, 'xd', 'TEA', 'TEA', 'TEA', NULL, NULL, NULL, NULL),
+(152, 23456789, 85, 1, '2', 'TEA', 8.00, 'xd', 'TEA', 'TEA', 'TEA', '9', NULL, NULL, NULL),
+(159, 12345678, 86, 1, '1', NULL, 8.33, NULL, NULL, NULL, NULL, '8', '10', '8', '7'),
+(160, 12345678, 86, 1, '2', NULL, 8.00, NULL, NULL, NULL, NULL, '8', '10', '6', '8'),
+(161, 45262626, 1, 1, '1', NULL, 10.00, NULL, NULL, NULL, NULL, '10', '10', '10', '10'),
+(162, 45262626, 1, 1, '2', NULL, 10.00, NULL, NULL, NULL, NULL, '10', '10', '10', '10'),
+(163, 12345121, 85, 1, '1', 'TEP', 1.00, NULL, 'TEP', 'TEP', 'TEP', NULL, NULL, NULL, NULL),
+(164, 12345121, 85, 1, '2', 'TEP', 1.00, NULL, 'TEP', 'TEP', 'TEP', '3', NULL, NULL, NULL),
+(169, 12345121, 85, 2, '1', 'TEP', 3.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+(170, 12345121, 85, 2, '2', 'TEA', 3.00, NULL, NULL, NULL, NULL, '3', NULL, NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -612,8 +975,12 @@ CREATE TABLE `usuarios` (
 INSERT INTO `usuarios` (`dni`, `password`, `nombre`, `telefono`, `rol`, `password_changed`) VALUES
 (0, '$2y$10$U5KOvgOlOpqyzApmHkDAUOS4Zts0qJbDgnQe9JKLC3u1upzk3/uSa', 'Administrador Root', NULL, 'root', 1),
 (111222, '$2y$10$05E4O6PLhtyGkrWFekaqk.cT4N3kEXn4LfKnzov3AHxHiz3.oRpQ2', 'Juan Perez', NULL, '', 1),
-(11222333, '$2y$10$T0D20A88QBWOP6I0tKVawu/PmnOXeIorDjVTzuto5x2ad0XmE3E7u', 'Alumno Test', NULL, '', 1),
+(11222333, '$2y$10$m0K46WVtRQtrRmPnJOwJ..NiRrhSn7RLYPFoq78nC4uEtp3A8y0Hy', 'Alumno Test', NULL, '', 1),
+(12345121, '$2y$10$I3y2aetrv/Rz1lkHyzuTEuYXjm4xOQo0Pyr9u3qtU0pzA.PI3qKI6', 'aaaaa', NULL, '', 0),
+(12345245, '$2y$10$m8p.yru8n3NwAURFbAq/4.j2/mb4./WNNSmUbSNnrzIBs5BlMffvC', 'hola papu', NULL, 'familia', 1),
+(12345421, '$2y$10$mwBRmJwKtG1yc23dytiuiOMcrkSmtKdN92SGy1na.pGaLhCRKJKc6', 'aaaaa', NULL, '', 0),
 (12345678, '$2y$10$psRHcBiA4drXMhPsWD7RY.AdXJaHXR4QF9qE65v7jZm5um5333tLa', 'Luis Gimenez', NULL, '', 1),
+(13414123, '$2y$10$kdkxlC1BZ0.3cdt1Dx0y7Op8DTbcDiCmwm5zjOzrY2A3R3xLPwZnK', 'gfagadfahgah', NULL, '', 0),
 (23456789, '$2y$10$WOcyXTIr.iMxg8/nyfQuz.XNqLnGfVqe6V.SkI11ZPKZP2/XuV0a2', 'Juan Perez', NULL, '', 1),
 (33222111, '$2y$10$aCPn3UXPEmpxzTRLplOyAOMExmo/8EfrA8gwzSyIhGUI0lTOn36qa', 'Profesor Test', NULL, 'profesor', 1),
 (44444444, '$2y$10$C8ZLC0649JEqC074nhyWQ.w4IFahUxs5CIDDDM4MfTyKPrILGjfIu', '', NULL, '', 1),
@@ -622,9 +989,9 @@ INSERT INTO `usuarios` (`dni`, `password`, `nombre`, `telefono`, `rol`, `passwor
 (45968685, '$2y$10$RWNsRiClG7ghVFZNdHK/c.SNdQFwW4UIxCHRgtU5NSOZi9HE3MkPW', 'azzaro y duka', NULL, 'admin', 1),
 (45968687, '$2y$10$RCCq1zJo5F2D408KioLpGeLBC7k5h6/JgpCve/haSkjFJAQ9iMnw2', 'luquita rodrigue', NULL, 'directivo', 1),
 (48062924, '$2y$10$xVm9X83NXFaCfOgvo9iUrOQZU4xHtDa7xd9aSmeS/UIY3dOch2zRC', '', NULL, '', 1),
-(77888999, '$2y$10$/27m5P6CxPk.sMBC5G3g3.5Afuw/ZV3V2ZEDigET3p75BHThevkW.', 'Familia Test', NULL, 'familia', 1),
+(77888999, '$2y$10$vGZHR9Kbx5cK1GDWZTilm.0uItCam0b9Ti9WCZ2KF2FoJD.zKe/sO', 'Familia Test', NULL, 'familia', 1),
 (98765432, '$2y$10$G/yYSdutYigg.Ih5AyMcZ.YGE0Ieow6jD3F2dGXuu5ocrnWGYMllW', 'Ramon Cruz', NULL, '', 1),
-(99888777, '$2y$10$jNeDlZHraV2.bwVXIoyAu.x0Mrr.CfUXY5Ek/luKUZI6Bm4MzaOm.', 'Preceptor Test', NULL, 'preceptor', 1),
+(99888777, '$2y$10$m64wRc456XuXIoqC6Qpk4.1Me7TLqpsKmP/jqOPmmhXZ/qnTJhpG6', 'Preceptor Test', NULL, 'preceptor', 1),
 (4294967295, '$2y$10$EOwGBHyU1LBGqIzncw.nAeoeWHu5jYUjl2vLwBrAYVkF/KX3FCW.a', 'gfagadfahgah', NULL, '', 1);
 
 -- --------------------------------------------------------
@@ -643,7 +1010,8 @@ CREATE TABLE `year_escolar` (
 --
 
 INSERT INTO `year_escolar` (`id`, `year`) VALUES
-(1, 2025);
+(1, 2025),
+(2, 2026);
 
 --
 -- Indexes for dumped tables
@@ -656,6 +1024,27 @@ ALTER TABLE `alumnos`
   ADD PRIMARY KEY (`alumno_dni`);
 
 --
+-- Indexes for table `alumno_materia_intensificacion`
+--
+ALTER TABLE `alumno_materia_intensificacion`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `uq_intensificacion_instancia` (`seguimiento_id`,`instancia`),
+  ADD KEY `fk_intensificacion_registrador` (`registrado_por`);
+
+--
+-- Indexes for table `alumno_materia_seguimiento`
+--
+ALTER TABLE `alumno_materia_seguimiento`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `uq_seguimiento_alumno_materia_ciclos` (`alumno_dni`,`materia_id`,`year_origen_id`,`year_seguimiento_id`),
+  ADD KEY `idx_seguimiento_alumno_ciclo` (`alumno_dni`,`year_seguimiento_id`),
+  ADD KEY `idx_seguimiento_recursada_curso` (`curso_recursada_id`,`year_recursada_id`),
+  ADD KEY `fk_seguimiento_materia` (`materia_id`),
+  ADD KEY `fk_seguimiento_year_origen` (`year_origen_id`),
+  ADD KEY `fk_seguimiento_year_actual` (`year_seguimiento_id`),
+  ADD KEY `fk_seguimiento_asignador` (`asignado_por`);
+
+--
 -- Indexes for table `asignado_alumno`
 --
 ALTER TABLE `asignado_alumno`
@@ -663,6 +1052,16 @@ ALTER TABLE `asignado_alumno`
   ADD UNIQUE KEY `uq_alumno_curso` (`alumno_dni`,`curso_id`,`year_escolar_id`),
   ADD KEY `curso_id` (`curso_id`),
   ADD KEY `year_escolar_id` (`year_escolar_id`);
+
+--
+-- Indexes for table `asignado_alumno_turno`
+--
+ALTER TABLE `asignado_alumno_turno`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `uq_alumno_curso_turno` (`alumno_dni`,`curso_id`,`year_escolar_id`,`turno_id`),
+  ADD KEY `idx_aat_alumno` (`alumno_dni`),
+  ADD KEY `idx_aat_curso` (`curso_id`),
+  ADD KEY `idx_aat_turno` (`turno_id`);
 
 --
 -- Indexes for table `asignado_profesor`
@@ -677,7 +1076,8 @@ ALTER TABLE `asignado_profesor`
 --
 ALTER TABLE `asistencia`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `uq_asistencia_alumno_fecha` (`alumno_dni`,`fecha`);
+  ADD UNIQUE KEY `uq_asistencia_alumno_fecha_turno` (`alumno_dni`,`fecha`,`turno_id`),
+  ADD KEY `idx_asistencia_turno_fecha` (`turno_id`,`fecha`);
 
 --
 -- Indexes for table `curso`
@@ -703,6 +1103,14 @@ ALTER TABLE `curso_materia`
   ADD KEY `idx_cm_curso` (`curso_id`),
   ADD KEY `idx_cm_materia` (`materia_id`),
   ADD KEY `idx_cm_year` (`year_escolar_id`);
+
+--
+-- Indexes for table `curso_turno`
+--
+ALTER TABLE `curso_turno`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `uq_curso_turno` (`curso_id`,`turno`),
+  ADD KEY `idx_ct_curso` (`curso_id`);
 
 --
 -- Indexes for table `curso_year`
@@ -806,10 +1214,28 @@ ALTER TABLE `year_escolar`
 --
 
 --
+-- AUTO_INCREMENT for table `alumno_materia_intensificacion`
+--
+ALTER TABLE `alumno_materia_intensificacion`
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
+-- AUTO_INCREMENT for table `alumno_materia_seguimiento`
+--
+ALTER TABLE `alumno_materia_seguimiento`
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
 -- AUTO_INCREMENT for table `asignado_alumno`
 --
 ALTER TABLE `asignado_alumno`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
+
+--
+-- AUTO_INCREMENT for table `asignado_alumno_turno`
+--
+ALTER TABLE `asignado_alumno_turno`
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=94;
 
 --
 -- AUTO_INCREMENT for table `asignado_profesor`
@@ -821,7 +1247,7 @@ ALTER TABLE `asignado_profesor`
 -- AUTO_INCREMENT for table `asistencia`
 --
 ALTER TABLE `asistencia`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=580;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=654;
 
 --
 -- AUTO_INCREMENT for table `curso`
@@ -839,7 +1265,13 @@ ALTER TABLE `curso_division`
 -- AUTO_INCREMENT for table `curso_materia`
 --
 ALTER TABLE `curso_materia`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+
+--
+-- AUTO_INCREMENT for table `curso_turno`
+--
+ALTER TABLE `curso_turno`
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=646;
 
 --
 -- AUTO_INCREMENT for table `curso_year`
@@ -851,13 +1283,13 @@ ALTER TABLE `curso_year`
 -- AUTO_INCREMENT for table `docente_materia_curso`
 --
 ALTER TABLE `docente_materia_curso`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
 -- AUTO_INCREMENT for table `familia_alumno`
 --
 ALTER TABLE `familia_alumno`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `foro`
@@ -899,7 +1331,7 @@ ALTER TABLE `notas`
 -- AUTO_INCREMENT for table `notas_detalle`
 --
 ALTER TABLE `notas_detalle`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=159;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=185;
 
 --
 -- AUTO_INCREMENT for table `preceptor_curso`
@@ -916,6 +1348,23 @@ ALTER TABLE `year_escolar`
 --
 -- Constraints for dumped tables
 --
+
+--
+-- Constraints for table `alumno_materia_intensificacion`
+--
+ALTER TABLE `alumno_materia_intensificacion`
+  ADD CONSTRAINT `fk_intensificacion_registrador` FOREIGN KEY (`registrado_por`) REFERENCES `usuarios` (`dni`) ON DELETE SET NULL ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_intensificacion_seguimiento` FOREIGN KEY (`seguimiento_id`) REFERENCES `alumno_materia_seguimiento` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+--
+-- Constraints for table `alumno_materia_seguimiento`
+--
+ALTER TABLE `alumno_materia_seguimiento`
+  ADD CONSTRAINT `fk_seguimiento_alumno` FOREIGN KEY (`alumno_dni`) REFERENCES `usuarios` (`dni`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_seguimiento_asignador` FOREIGN KEY (`asignado_por`) REFERENCES `usuarios` (`dni`) ON DELETE SET NULL ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_seguimiento_materia` FOREIGN KEY (`materia_id`) REFERENCES `materias` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_seguimiento_year_actual` FOREIGN KEY (`year_seguimiento_id`) REFERENCES `year_escolar` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_seguimiento_year_origen` FOREIGN KEY (`year_origen_id`) REFERENCES `year_escolar` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Constraints for table `asignado_alumno`

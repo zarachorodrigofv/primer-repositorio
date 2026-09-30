@@ -4,9 +4,52 @@
  * La lógicaoffline se centraliza aquí para evitar que distintas pantallas
  * calculen boletines con consultas distintas.
  */
+function obtenerIntensificacionesPorMateria(PDO $pdo, array $alumnosDni, int $yearOrigenId): array {
+    $alumnosDni = array_values(array_unique(array_filter(array_map('intval', $alumnosDni))));
+    if (!$alumnosDni || $yearOrigenId <= 0) return [];
+
+    $placeholders = implode(',', array_fill(0, count($alumnosDni), '?'));
+    $stmt = $pdo->prepare(
+        "SELECT s.alumno_dni, s.materia_id, i.instancia, i.estado,
+                i.nota, i.nota_valorativa, ys.`year` AS year_seguimiento
+         FROM alumno_materia_seguimiento s
+         JOIN alumno_materia_intensificacion i ON i.seguimiento_id = s.id
+         JOIN year_escolar ys ON ys.id = s.year_seguimiento_id
+         WHERE s.year_origen_id = ?
+           AND s.alumno_dni IN ($placeholders)
+         ORDER BY s.alumno_dni, s.materia_id,
+                                    (i.estado = 'aprobada') DESC,
+                                    (i.estado = 'no_aprobada') DESC, i.fecha DESC, i.id DESC"
+    );
+    $stmt->execute(array_merge([$yearOrigenId], $alumnosDni));
+
+    $resultados = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+        $alumnoDni = (int)$fila['alumno_dni'];
+        $materiaId = (int)$fila['materia_id'];
+        if (isset($resultados[$alumnoDni][$materiaId])) continue;
+
+        $valorativa = strtoupper(trim((string)($fila['nota_valorativa'] ?? '')));
+        if ($fila['estado'] === 'aprobada') {
+            $resultado = 'TEA';
+        } elseif (in_array($valorativa, ['TEP', 'TED'], true)) {
+            $resultado = $valorativa;
+        } elseif ($fila['estado'] === 'no_aprobada') {
+            $resultado = 'TEP';
+        } else {
+            $resultado = null;
+        }
+
+        $fila['resultado'] = $resultado;
+        $resultados[$alumnoDni][$materiaId] = $fila;
+    }
+
+    return $resultados;
+}
+
 function obtenerBoletinAlumno(PDO $pdo, int $alumnoDni, int $yearId): array {
     $stmt = $pdo->prepare(
-        "SELECT m.nombre AS materia,
+        "SELECT nd.materia_id, m.nombre AS materia,
                 MAX(CASE WHEN nd.cuatrimestre='1' THEN nd.nota_valorativa END) AS c1_val,
                 MAX(CASE WHEN nd.cuatrimestre='1' THEN nd.nota_numerica END) AS c1_num,
                 MAX(CASE WHEN nd.cuatrimestre='2' THEN nd.nota_valorativa END) AS c2_val,
@@ -25,7 +68,15 @@ function obtenerBoletinAlumno(PDO $pdo, int $alumnoDni, int $yearId): array {
         ':year_id'    => $yearId,
     ]);
 
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $boletin = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $intensificaciones = obtenerIntensificacionesPorMateria($pdo, [$alumnoDni], $yearId)[$alumnoDni] ?? [];
+    foreach ($boletin as &$fila) {
+        $resultado = $intensificaciones[(int)$fila['materia_id']]['resultado'] ?? null;
+        $fila['instancia_intensificacion'] = $resultado;
+    }
+    unset($fila);
+
+    return $boletin;
 }
 
 function nivelNumericoCurso(?string $grado): ?int {
@@ -151,6 +202,9 @@ function obtenerMateriasPendientes(PDO $pdo, int $alumnoDni, int $yearActualId):
             $fila['resuelta'] = false;
             $fila['seguimiento_id'] = null;
             $fila['clasificacion'] = 'sin_clasificar';
+            $fila['estado_recursada'] = 'pendiente_inscripcion';
+            $fila['curso_recursada_id'] = null;
+            $fila['year_recursada_id'] = null;
             $pendientes[$key] = $fila;
         }
     }
@@ -160,7 +214,8 @@ function obtenerMateriasPendientes(PDO $pdo, int $alumnoDni, int $yearActualId):
     $stmt = $pdo->prepare(
         "SELECT s.id AS seguimiento_id, s.materia_id, s.year_origen_id,
                 s.year_seguimiento_id, ys.`year` AS year_seguimiento,
-                s.clasificacion, i.instancia, i.estado, i.nota,
+                s.clasificacion, s.estado_recursada, s.curso_recursada_id,
+                s.year_recursada_id, i.instancia, i.estado, i.nota,
                 i.nota_valorativa, i.observaciones, i.fecha
          FROM alumno_materia_seguimiento s
          JOIN year_escolar ys ON ys.id = s.year_seguimiento_id
@@ -186,6 +241,13 @@ function obtenerMateriasPendientes(PDO $pdo, int $alumnoDni, int $yearActualId):
         if ((int)$row['year_seguimiento_id'] === $yearActualId) {
             $pendientes[$key]['seguimiento_id'] = (int)$row['seguimiento_id'];
             $pendientes[$key]['clasificacion'] = $row['clasificacion'];
+            $pendientes[$key]['estado_recursada'] = $row['estado_recursada'] ?? 'pendiente_inscripcion';
+            $pendientes[$key]['curso_recursada_id'] = $row['curso_recursada_id'] !== null
+                ? (int)$row['curso_recursada_id']
+                : null;
+            $pendientes[$key]['year_recursada_id'] = $row['year_recursada_id'] !== null
+                ? (int)$row['year_recursada_id']
+                : null;
             if ($row['instancia'] !== null) {
                 $pendientes[$key]['tiene_intentos_ciclo_actual'] = true;
             }

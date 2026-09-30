@@ -2,6 +2,7 @@
 header('Content-Type: application/json; charset=utf-8');
 require __DIR__.'/config.php';
 require __DIR__.'/auth.php';
+require_once __DIR__.'/boletin_helpers.php';
 
 requireLogin();
 $pdo = db();
@@ -174,6 +175,16 @@ try {
   $st = $pdo->prepare($sql);
   $st->execute($params);
   $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+  $intensificaciones = obtenerIntensificacionesPorMateria(
+    $pdo,
+    array_column($rows, 'dni'),
+    $year_id
+  );
+  foreach ($rows as &$row) {
+    $resultado = $intensificaciones[(int)$row['dni']][$materia_id] ?? null;
+    $row['instancia_intensificacion'] = $resultado['resultado'] ?? null;
+  }
+  unset($row);
   echo json_encode(['ok'=>true, 'alumnos'=>$rows]);
 } catch (Throwable $e) {
   echo json_encode(['ok'=>false, 'msg'=>'Error SQL: '.$e->getMessage()]);

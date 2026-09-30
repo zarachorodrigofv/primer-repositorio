@@ -214,6 +214,19 @@ if ($rol === 'profesor') {
     .seguimiento-panel[hidden] { display: none; }
     .seguimiento-panel h2 { margin: 0 0 6px; color: #0f172a; font-size: 20px; }
     .seguimiento-intro { margin: 0 0 16px; color: #475569; font-size: 14px; }
+    .seguimiento-tabs { display: flex; gap: 8px; margin: 0 0 14px; border-bottom: 1px solid #cbd5e1; }
+    .seguimiento-tab { padding: 9px 14px; border: 0; border-bottom: 3px solid transparent; background: transparent; color: #475569; cursor: pointer; font-weight: 600; }
+    .seguimiento-tab[aria-selected="true"] { border-bottom-color: #166534; color: #166534; }
+    .recursadas-table-wrap { overflow-x: auto; }
+    .recursadas-table { width: 100%; border-collapse: collapse; background: #fff; }
+    .recursadas-table th, .recursadas-table td { padding: 9px 10px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: middle; }
+    .recursadas-table th { color: #334155; font-size: 12px; white-space: nowrap; }
+    .recursada-estado { padding: 7px 9px; border: 1px solid #94a3b8; border-radius: 4px; background: #fff; color: #0f172a; }
+    .recursada-badge { display: inline-block; padding: 5px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+    .recursada-badge.aprobada { background: #dcfce7; color: #166534; }
+    .recursada-badge.no-aprobada { background: #fee2e2; color: #991b1b; }
+    .recursada-guardar { padding: 7px 10px; border: 0; border-radius: 4px; background: #166534; color: #fff; cursor: pointer; }
+    .recursada-guardar:disabled { opacity: .55; cursor: wait; }
     .seguimiento-alumno { margin: 18px 0 0; padding: 14px; background: #fff; border: 1px solid #dbe3ee; border-radius: 4px; }
     .seguimiento-alumno h3 { margin: 0 0 8px; color: #0f172a; font-size: 16px; }
     .seguimiento-materia { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(180px, .6fr) minmax(320px, 1.4fr); gap: 14px; align-items: start; padding: 12px 0; border-top: 1px solid #e2e8f0; }
@@ -331,14 +344,12 @@ if ($rol === 'profesor') {
         <th>Valorativa C2</th>
         <th>Numérica C2</th>
         <th>Nota Final</th>
-        <th>Intensificación Diciembre</th>
-        <th>Intensificación Febrero</th>
-        <th>Intensificación Marzo</th>
+        <th>Instancia de intensificación</th>
         <th>Observaciones</th>
       </tr>
     </thead>
     <tbody id="tbodyNotas">
-      <tr><td colspan="11">Seleccioná curso y materia…</td></tr>
+      <tr><td colspan="9">Seleccioná curso y materia…</td></tr>
     </tbody>
   </table>
 </div>
@@ -348,7 +359,17 @@ if ($rol === 'profesor') {
       <section id="panelSeguimiento" class="seguimiento-panel" hidden>
         <h2>Materias pendientes</h2>
         <p class="seguimiento-intro">Se incluyen materias del ciclo actual y de años anteriores que todavía no se aprobaron. La nota de cada fila corresponde al ciclo de origen. Se permiten hasta cinco intensificaciones; recursar requiere cursar el ciclo completo.</p>
-        <div id="listaIntensificaciones"><p>Seleccioná un curso para consultar sus alumnos.</p></div>
+        <div class="seguimiento-tabs" role="tablist" aria-label="Seguimiento de materias pendientes">
+          <button type="button" class="seguimiento-tab" role="tab" aria-selected="true" data-seguimiento-vista="intensificar">Intensificar</button>
+          <button type="button" class="seguimiento-tab" role="tab" aria-selected="false" data-seguimiento-vista="recursar">Recursar</button>
+        </div>
+        <div id="vistaIntensificar" role="tabpanel">
+          <div id="listaIntensificaciones"><p>Seleccioná un curso para consultar sus alumnos.</p></div>
+        </div>
+        <div id="vistaRecursar" role="tabpanel" hidden>
+          <p class="seguimiento-intro">Marcá cuándo el alumno queda inscripto cursando esta materia. El cierre aprobado o no aprobado se obtiene de las notas del curso.</p>
+          <div id="listaRecursadas"><p>Seleccioná un curso para consultar recursadas.</p></div>
+        </div>
       </section>
       <?php endif; ?>
 
@@ -399,20 +420,6 @@ function teSelect(value = '', disabled = true){
   s.disabled = disabled;
   return s;
 }
-function intensSelect(value = '', disabled = true){
-  const s = document.createElement('select');
-  const opts = ['','TEP','TEA','TED'];
-  for (const v of opts){
-    const op = document.createElement('option');
-    op.value = v;
-    op.textContent = v === '' ? 'select' : v;
-    if (v === (value || '')) op.selected = true;
-    s.appendChild(op);
-  }
-  s.disabled = disabled;
-  s.style.minWidth = '100px';
-  return s;
-}
 function numInput(value = '', disabled = true){
   const i = document.createElement('input');
   i.type  = 'number';
@@ -443,7 +450,7 @@ function pintarAlumnosNotas(lista){
   tbodyNotas.innerHTML = '';
 
   if (!lista || !lista.length){
-    tbodyNotas.innerHTML = `<tr><td colspan="11">Sin alumnos</td></tr>`;
+    tbodyNotas.innerHTML = `<tr><td colspan="9">Sin alumnos</td></tr>`;
     contTabla.style.display = 'block';
     return;
   }
@@ -493,26 +500,10 @@ function pintarAlumnosNotas(lista){
     tdFinal.appendChild(inFinal);
     tr.appendChild(tdFinal);
 
-    // Intensificación Diciembre
-    const tdIntDic = document.createElement('td');
-    const selIntDic = intensSelect(a.intens_diciembre || '', bloqueado);
-    selIntDic.dataset.status = String(a.intens_diciembre || '').toUpperCase();
-    tdIntDic.appendChild(selIntDic);
-    tr.appendChild(tdIntDic);
-
-    // Intensificación Febrero
-    const tdIntFeb = document.createElement('td');
-    const selIntFeb = intensSelect(a.intens_febrero || '', bloqueado);
-    selIntFeb.dataset.status = String(a.intens_febrero || '').toUpperCase();
-    tdIntFeb.appendChild(selIntFeb);
-    tr.appendChild(tdIntFeb);
-
-    // Intensificación Marzo
-    const tdIntMar = document.createElement('td');
-    const selIntMar = intensSelect(a.intens_marzo || '', bloqueado);
-    selIntMar.dataset.status = String(a.intens_marzo || '').toUpperCase();
-    tdIntMar.appendChild(selIntMar);
-    tr.appendChild(tdIntMar);
+    // El resultado de intensificación se carga desde el seguimiento académico.
+    const tdIntensificacion = document.createElement('td');
+    tdIntensificacion.textContent = a.instancia_intensificacion || '—';
+    tr.appendChild(tdIntensificacion);
 
     // Observaciones
     const tdObs = document.createElement('td');
@@ -545,7 +536,7 @@ async function cargarMaterias(cursoId){
   selMateria.innerHTML = `<option value="">Cargando...</option>`;
   selMateria.disabled = true;
   contTabla.style.display = 'none';
-  tbodyNotas.innerHTML   = `<tr><td colspan="11">Seleccioná curso y materia…</td></tr>`;
+  tbodyNotas.innerHTML   = `<tr><td colspan="9">Seleccioná curso y materia…</td></tr>`;
   if (panelNotas) panelNotas.style.display = 'none';
 
   if (!cursoId) {
@@ -581,11 +572,11 @@ async function cargarAlumnosNotas(){
   if (!cursoId || !materiaId){
     contTabla.style.display = 'none';
     if (panelNotas) panelNotas.style.display = 'none';
-    tbodyNotas.innerHTML = `<tr><td colspan="11">Seleccioná curso y materia…</td></tr>`;
+    tbodyNotas.innerHTML = `<tr><td colspan="9">Seleccioná curso y materia…</td></tr>`;
     return;
   }
 
-  tbodyNotas.innerHTML = `<tr><td colspan="11">Cargando…</td></tr>`;
+  tbodyNotas.innerHTML = `<tr><td colspan="9">Cargando…</td></tr>`;
   contTabla.style.display = 'block';
   if (panelNotas) panelNotas.style.display = 'block';
 
@@ -597,7 +588,7 @@ async function cargarAlumnosNotas(){
     const j = await r.json();
     if (!j.ok){
       alert(j.msg || 'No se pudieron cargar alumnos/notas');
-      tbodyNotas.innerHTML = `<tr><td colspan="11">Error al cargar</td></tr>`;
+      tbodyNotas.innerHTML = `<tr><td colspan="9">Error al cargar</td></tr>`;
       return;
     }
     pintarAlumnosNotas(j.alumnos || []);
@@ -605,7 +596,7 @@ async function cargarAlumnosNotas(){
   }catch(e){
     console.error(e);
     alert('Error de red al listar alumnos/notas');
-    tbodyNotas.innerHTML = `<tr><td colspan="11">Error de red</td></tr>`;
+    tbodyNotas.innerHTML = `<tr><td colspan="9">Error de red</td></tr>`;
   }
 }
 
@@ -626,7 +617,7 @@ async function guardarNotas(){
   const rows = [];
   tbodyNotas.querySelectorAll('tr').forEach(tr => {
     const tds = tr.querySelectorAll('td');
-    if (tds.length < 11) return;
+    if (tds.length < 9) return;
 
     const dni = parseInt((tds[0].textContent || '').trim(), 10) || 0;
     if (!dni) return;
@@ -638,10 +629,7 @@ async function guardarNotas(){
       c2_val:    tds[4].querySelector('select')?.value || null,
       c2_num:    tds[5].querySelector('input')?.value || null,
       final_num: tds[6].querySelector('input')?.value || null,
-      intens_diciembre: tds[7].querySelector('select')?.value || null,
-      intens_febrero:   tds[8].querySelector('select')?.value || null,
-      intens_marzo:     tds[9].querySelector('select')?.value || null,
-      obs:       tds[10].querySelector('input')?.value || null
+      obs:       tds[8].querySelector('input')?.value || null
     });
   });
 
@@ -651,6 +639,7 @@ async function guardarNotas(){
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': <?= json_encode(csrfToken()) ?> },
       body: JSON.stringify({
+        curso_id: parseInt(cursoId, 10),
         materia_id: parseInt(materiaId, 10),
         year_id: YEAR_ID,
         data: rows
@@ -667,6 +656,8 @@ async function guardarNotas(){
       alerta.style.display = "block";
       setTimeout(() => alerta.style.display = "none", 2000);
     }
+    await cargarIntensificaciones();
+    if (vistaSeguimientoActual === 'recursar') await cargarRecursadas();
   }catch(e){
     console.error(e);
     alert("Error de red al guardar notas");
@@ -697,9 +688,10 @@ if (selCurso){
     selMateria.innerHTML = `<option value="">Elegí materia</option>`;
     selMateria.disabled = !v;
     contTabla.style.display = 'none';
-    tbodyNotas.innerHTML = `<tr><td colspan="11">Seleccioná curso y materia…</td></tr>`;
+    tbodyNotas.innerHTML = `<tr><td colspan="9">Seleccioná curso y materia…</td></tr>`;
     if (v) cargarMaterias(v);
     cargarIntensificaciones();
+    if (vistaSeguimientoActual === 'recursar') cargarRecursadas();
   });
 }
 if (selMateria){
@@ -713,7 +705,23 @@ if (selYear){
 
 const panelSeguimiento = document.getElementById('panelSeguimiento');
 const listaIntensificaciones = document.getElementById('listaIntensificaciones');
+const listaRecursadas = document.getElementById('listaRecursadas');
+const vistaIntensificar = document.getElementById('vistaIntensificar');
+const vistaRecursar = document.getElementById('vistaRecursar');
 const csrfIntensificacion = <?= json_encode(csrfToken()) ?>;
+let vistaSeguimientoActual = 'intensificar';
+
+document.querySelectorAll('[data-seguimiento-vista]').forEach(boton => {
+  boton.addEventListener('click', () => {
+    vistaSeguimientoActual = boton.dataset.seguimientoVista;
+    document.querySelectorAll('[data-seguimiento-vista]').forEach(tab => {
+      tab.setAttribute('aria-selected', String(tab === boton));
+    });
+    vistaIntensificar.hidden = vistaSeguimientoActual !== 'intensificar';
+    vistaRecursar.hidden = vistaSeguimientoActual !== 'recursar';
+    if (vistaSeguimientoActual === 'recursar') cargarRecursadas();
+  });
+});
 
 function crearTexto(tag, texto, className = '') {
   const elemento = document.createElement(tag);
@@ -794,7 +802,8 @@ async function cargarIntensificaciones() {
         selectorClasificacion.add(new Option('Intensificar', 'intensificar'));
         selectorClasificacion.add(new Option('Recursar el ciclo completo', 'recursar'));
         selectorClasificacion.value = materia.clasificacion || 'sin_clasificar';
-        selectorClasificacion.disabled = !materia.habilita_recuperacion || materia.tiene_intentos_ciclo_actual;
+        selectorClasificacion.disabled = !materia.habilita_recuperacion
+          || materia.tiene_intentos_ciclo_actual;
         if (!materia.habilita_recuperacion) {
           selectorClasificacion.value = 'sin_clasificar';
           selectorClasificacion.querySelector('option[value="intensificar"]').disabled = true;
@@ -898,6 +907,134 @@ async function cargarIntensificaciones() {
   }
 }
 
+async function cargarRecursadas() {
+  if (!panelSeguimiento || !listaRecursadas) return;
+  const cursoId = selCurso.value;
+  listaRecursadas.replaceChildren();
+  if (!cursoId) {
+    listaRecursadas.appendChild(crearTexto('p', 'Seleccioná un curso para consultar recursadas.'));
+    return;
+  }
+
+  listaRecursadas.appendChild(crearTexto('p', 'Cargando recursadas...'));
+  try {
+    const response = await fetch(`api_listar_recursadas.php?curso_id=${encodeURIComponent(cursoId)}`, {credentials: 'same-origin'});
+    const result = await response.json();
+    if (!result.ok) throw new Error(result.msg || 'No se pudieron cargar las recursadas.');
+    if (result.habilitado === false) {
+      listaRecursadas.replaceChildren(crearTexto('p', 'El seguimiento de recursadas está habilitado desde segundo año.'));
+      return;
+    }
+    panelSeguimiento.hidden = false;
+    listaRecursadas.replaceChildren();
+    if (!result.alumnos.length) {
+      listaRecursadas.appendChild(crearTexto('p', 'No hay materias clasificadas para recursar en este curso.'));
+      return;
+    }
+
+    result.alumnos.forEach(alumno => {
+      const panelAlumno = document.createElement('div');
+      panelAlumno.className = 'seguimiento-alumno';
+      panelAlumno.appendChild(crearTexto('h3', `${alumno.nombre} — DNI ${alumno.dni}`));
+      const envoltorio = document.createElement('div');
+      envoltorio.className = 'recursadas-table-wrap';
+      const tabla = document.createElement('table');
+      tabla.className = 'recursadas-table';
+      const cabecera = document.createElement('thead');
+      const filaCabecera = document.createElement('tr');
+      ['Materia y origen', 'Curso de recursada', 'Estado', 'Acción'].forEach(titulo => {
+        filaCabecera.appendChild(crearTexto('th', titulo));
+      });
+      cabecera.appendChild(filaCabecera);
+      const cuerpo = document.createElement('tbody');
+
+      alumno.materias.forEach(materia => {
+        const fila = document.createElement('tr');
+        const origen = `${materia.grado || 'Nivel sin identificar'} · Ciclo ${materia.year_origen} · Nota ${materia.nota_origen}`;
+        const celdaMateria = crearTexto('td', `${materia.materia}\n${origen}`);
+        celdaMateria.style.whiteSpace = 'pre-line';
+        fila.appendChild(celdaMateria);
+        const destino = materia.curso
+          ? `${materia.curso} · ${materia.year_recursada}`
+          : 'Pendiente de inscripción';
+        fila.appendChild(crearTexto('td', destino));
+
+        const celdaEstado = document.createElement('td');
+        const estadoFinal = ['aprobada', 'no_aprobada'].includes(materia.estado);
+        if (estadoFinal) {
+          const etiqueta = crearTexto('span', materia.estado === 'aprobada' ? 'Aprobada' : 'No aprobada',
+            `recursada-badge ${materia.estado === 'aprobada' ? 'aprobada' : 'no-aprobada'}`);
+          celdaEstado.appendChild(etiqueta);
+        } else {
+          const selector = document.createElement('select');
+          selector.className = 'recursada-estado';
+          selector.add(new Option('Pendiente de inscripción', 'pendiente_inscripcion'));
+          selector.add(new Option('Cursando', 'cursando'));
+          selector.value = materia.estado_guardado || 'pendiente_inscripcion';
+          celdaEstado.appendChild(selector);
+          materia.selectorEstado = selector;
+        }
+        fila.appendChild(celdaEstado);
+
+        const celdaAccion = document.createElement('td');
+        if (!estadoFinal) {
+          const guardar = document.createElement('button');
+          guardar.type = 'button';
+          guardar.className = 'recursada-guardar';
+          guardar.textContent = 'Guardar';
+          guardar.disabled = materia.estado_guardado === (materia.selectorEstado?.value || 'pendiente_inscripcion');
+          materia.selectorEstado?.addEventListener('change', () => {
+            guardar.disabled = materia.estado_guardado === materia.selectorEstado.value;
+          });
+          guardar.addEventListener('click', async () => {
+            guardar.disabled = true;
+            const guardado = await guardarEstadoRecursada({
+              alumno_dni: alumno.dni,
+              curso_id: Number(cursoId),
+              materia_id: materia.materia_id,
+              year_origen_id: materia.year_origen_id,
+              estado: materia.selectorEstado.value
+            });
+            if (!guardado) guardar.disabled = false;
+          });
+          celdaAccion.appendChild(guardar);
+        } else {
+          celdaAccion.textContent = `Ciclo ${materia.year_recursada || ''}`;
+        }
+        fila.appendChild(celdaAccion);
+        cuerpo.appendChild(fila);
+      });
+
+      tabla.append(cabecera, cuerpo);
+      envoltorio.appendChild(tabla);
+      panelAlumno.appendChild(envoltorio);
+      listaRecursadas.appendChild(panelAlumno);
+    });
+  } catch (error) {
+    console.error(error);
+    listaRecursadas.replaceChildren(crearTexto('p', error.message, 'text-danger'));
+  }
+}
+
+async function guardarEstadoRecursada(payload) {
+  try {
+    const response = await fetch('api_actualizar_recursada.php', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrfIntensificacion},
+      body: JSON.stringify(payload)
+    });
+    const result = await response.json();
+    if (!result.ok) throw new Error(result.msg || 'No se pudo guardar el seguimiento.');
+    await cargarRecursadas();
+    return true;
+  } catch (error) {
+    console.error(error);
+    alert(error.message || 'Error de red al guardar la recursada.');
+    return false;
+  }
+}
+
 async function guardarIntensificacion(payload) {
   try {
     const response = await fetch('api_guardar_intensificacion.php', {
@@ -908,6 +1045,9 @@ async function guardarIntensificacion(payload) {
     });
     const result = await response.json();
     if (!result.ok) throw new Error(result.msg || 'No se pudo guardar.');
+    if (payload.accion === 'registrar_intento' && String(selMateria.value) === String(payload.materia_id)) {
+      await cargarAlumnosNotas();
+    }
     await cargarIntensificaciones();
   } catch (error) {
     console.error(error);

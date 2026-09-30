@@ -249,21 +249,24 @@ $nombreUsuario = $_SESSION['usuario'] ?? 'Familia';
       <h3>📝 Boletín académico — <?php echo htmlspecialchars($yearSeleccionadoNombre ?: (string)$yearSeleccionado); ?></h3>
       <?php if ($notas): ?>
       <table>
-        <thead><tr><th>Materia</th><th>1° Cuatr.</th><th>2° Cuatr.</th><th>Final</th><th>Observaciones</th></tr></thead>
+        <thead><tr><th>Materia</th><th>1° Cuatr.</th><th>2° Cuatr.</th><th>Final</th><th>Instancia de intensificación</th><th>Observaciones</th></tr></thead>
         <tbody>
           <?php foreach ($notas as $n): ?>
             <?php
               $c1 = $n['c1_num'] !== null ? $n['c1_num'] : ($n['c1_val'] ?? '—');
               $c2 = $n['c2_num'] !== null ? $n['c2_num'] : ($n['c2_val'] ?? '—');
               $fin = $n['nota_final'];
+              $finAprobado = $fin === 'TEA' || (is_numeric($fin) && (float)$fin >= 7);
+              $finDesaprobado = in_array($fin, ['TEP', 'TED'], true) || (is_numeric($fin) && (float)$fin < 7);
             ?>
             <tr>
               <td><?php echo htmlspecialchars($n['materia']); ?></td>
               <td><?php echo htmlspecialchars((string)$c1); ?></td>
               <td><?php echo htmlspecialchars((string)$c2); ?></td>
-              <td class="<?php echo ($fin !== null && $fin >= 7) ? 'nota-aprobada' : (($fin !== null) ? 'nota-desaprobada' : ''); ?>">
+              <td class="<?php echo $finAprobado ? 'nota-aprobada' : ($finDesaprobado ? 'nota-desaprobada' : ''); ?>">
                 <?php echo $fin !== null ? htmlspecialchars((string)$fin) : '—'; ?>
               </td>
+              <td><?php echo htmlspecialchars((string)($n['instancia_intensificacion'] ?? '—')); ?></td>
               <td><?php echo htmlspecialchars($n['observaciones'] ?? ''); ?></td>
             </tr>
           <?php endforeach; ?>

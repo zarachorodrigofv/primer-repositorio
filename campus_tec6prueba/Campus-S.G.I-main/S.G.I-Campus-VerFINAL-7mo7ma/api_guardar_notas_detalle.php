@@ -38,11 +38,26 @@ if ($yearSolicitado !== $year_id) {
 }
 
 $materia_id = (int)($payload['materia_id'] ?? 0);
+$curso_id   = (int)($payload['curso_id'] ?? 0);
 $data       = $payload['data'] ?? null;
-if ($materia_id<=0 || !is_array($data)) {
-  echo json_encode(['ok'=>false,'msg'=>'Faltan materia_id o data']);
+if ($materia_id<=0 || $curso_id<=0 || !is_array($data)) {
+  echo json_encode(['ok'=>false,'msg'=>'Faltan curso_id, materia_id o data']);
   exit;
 }
+
+$stCurso = $pdo->prepare("SELECT cy.year
+  FROM curso c
+  JOIN curso_year cy ON cy.id = c.curso_year_id
+  JOIN curso_materia cm ON cm.curso_id = c.id AND cm.year_escolar_id = ? AND cm.materia_id = ?
+  WHERE c.id = ? LIMIT 1");
+$stCurso->execute([$year_id, $materia_id, $curso_id]);
+$gradoCurso = (string)($stCurso->fetchColumn() ?: '');
+if (!preg_match('/\d+/', $gradoCurso, $coincidenciaGrado)) {
+  http_response_code(422);
+  echo json_encode(['ok'=>false,'msg'=>'El curso no tiene asignada esta materia en el ciclo actual']);
+  exit;
+}
+$nivelCurso = (int)$coincidenciaGrado[0];
 
 // Si es profesor, verifico que esa materia esté asignada en este año lectivo
 if ($rol === 'profesor') {
@@ -80,22 +95,29 @@ try {
       nota_valorativa,
       nota_numerica,
       nota_final,
-      intens_diciembre,
-      intens_febrero,
-      intens_marzo,
       observaciones
     )
-    VALUES (:dni, :mat, :year, :c, :val, :num, :final, :intens_dic, :intens_feb, :intens_mar, :obs)
+    VALUES (:dni, :mat, :year, :c, :val, :num, :final, :obs)
     ON DUPLICATE KEY UPDATE
       nota_valorativa = VALUES(nota_valorativa),
       nota_numerica   = VALUES(nota_numerica),
       nota_final      = VALUES(nota_final),
-      intens_diciembre = VALUES(intens_diciembre),
-      intens_febrero   = VALUES(intens_febrero),
-      intens_marzo     = VALUES(intens_marzo),
       observaciones    = VALUES(observaciones)
   ";
   $stmt = $pdo->prepare($sql);
+  $stAlumnoCurso = $pdo->prepare("SELECT 1 FROM asignado_alumno
+    WHERE alumno_dni = ? AND curso_id = ? AND year_escolar_id = ? AND estado = 'activo' LIMIT 1");
+  $stSeguimiento = $pdo->prepare("SELECT id, clasificacion FROM alumno_materia_seguimiento
+    WHERE alumno_dni = ? AND materia_id = ? AND year_origen_id = ? AND year_seguimiento_id = ?
+    LIMIT 1 FOR UPDATE");
+  $stConteoIntensificadas = $pdo->prepare("SELECT COUNT(*) FROM alumno_materia_seguimiento
+    WHERE alumno_dni = ? AND year_seguimiento_id = ? AND clasificacion = 'intensificar'");
+  $stInsertSeguimiento = $pdo->prepare("INSERT INTO alumno_materia_seguimiento
+    (alumno_dni, materia_id, year_origen_id, year_seguimiento_id, clasificacion, asignado_por)
+    VALUES (?, ?, ?, ?, ?, ?)");
+  $stUpdateSeguimiento = $pdo->prepare("UPDATE alumno_materia_seguimiento
+    SET clasificacion = ?, asignado_por = ? WHERE id = ? AND clasificacion = 'sin_clasificar'");
+  $clasificacionesActualizadas = [];
 
   foreach ($data as $row) {
     $dni = (int)($row['dni'] ?? 0);
@@ -109,9 +131,6 @@ try {
     $c2_raw = $row['c2_num'] ?? '';
 
     $obs    = $row['obs'] ?? null;
-    $intensDic = $row['intens_diciembre'] ?? null;
-    $intensFeb = $row['intens_febrero'] ?? null;
-    $intensMar = $row['intens_marzo'] ?? null;
 
     // Normalizo numéricas
     $c1_num = ($c1_raw === '' ? null : (float)$c1_raw);
@@ -123,6 +142,9 @@ try {
       // promedio redondeando PARA ABAJO
       $final = floor(($c1_num + $c2_num) / 2);
     }
+
+    $stAlumnoCurso->execute([$dni, $curso_id, $year_id]);
+    if (!$stAlumnoCurso->fetchColumn()) continue;
 
     // Seguridad por alumno/curso:
     // el preceptor solo puede calificar alumnos de sus cursos y la materia de ese curso.
@@ -140,6 +162,7 @@ try {
          AND cm.materia_id = :mat
         WHERE aa.alumno_dni = :alumno
           AND aa.year_escolar_id = :year
+          AND aa.curso_id = :curso
           AND aa.estado = 'activo'
           AND pc.preceptor_dni = :prec
         LIMIT 1
@@ -147,6 +170,7 @@ try {
       $stAcc->execute([
         ':alumno'=>$dni,
         ':year'=>$year_id,
+        ':curso'=>$curso_id,
         ':mat'=>$materia_id,
         ':prec'=>$dniPrec
       ]);
@@ -169,12 +193,14 @@ try {
          AND dmc.maestro_dni = :profe
         WHERE aa.alumno_dni = :alumno
           AND aa.year_escolar_id = :year
+          AND aa.curso_id = :curso
           AND aa.estado = 'activo'
         LIMIT 1
       ");
       $stAcc->execute([
         ':alumno'=>$dni,
         ':year'=>$year_id,
+        ':curso'=>$curso_id,
         ':mat'=>$materia_id,
         ':profe'=>$dniProfe
       ]);
@@ -192,9 +218,6 @@ try {
       ':val'   => $c1_val,
       ':num'   => $c1_num,
       ':final' => null,
-      ':intens_dic' => $intensDic,
-      ':intens_feb' => $intensFeb,
-      ':intens_mar' => $intensMar,
       ':obs'   => $obs,
     ]);
 
@@ -207,15 +230,39 @@ try {
       ':val'   => $c2_val,
       ':num'   => $c2_num,
       ':final' => $final,
-      ':intens_dic' => $intensDic,
-      ':intens_feb' => $intensFeb,
-      ':intens_mar' => $intensMar,
       ':obs'   => $obs,
     ]);
+
+    $valorativaFinal = strtoupper(trim((string)($c2_val ?? $c1_val ?? '')));
+    $desaprobada = in_array($valorativaFinal, ['TEP', 'TED'], true)
+      || ($final !== null && $final < 7 && $valorativaFinal !== 'TEA');
+    if ($nivelCurso >= 2 && $desaprobada) {
+      $stSeguimiento->execute([$dni, $materia_id, $year_id, $year_id]);
+      $seguimiento = $stSeguimiento->fetch(PDO::FETCH_ASSOC);
+      if (!$seguimiento || $seguimiento['clasificacion'] === 'sin_clasificar') {
+        $stConteoIntensificadas->execute([$dni, $year_id]);
+        $clasificacion = (int)$stConteoIntensificadas->fetchColumn() < 5
+          ? 'intensificar'
+          : 'recursar';
+        if ($seguimiento) {
+          $stUpdateSeguimiento->execute([$clasificacion, (int)$_SESSION['dni'], (int)$seguimiento['id']]);
+        } else {
+          $stInsertSeguimiento->execute([
+            $dni,
+            $materia_id,
+            $year_id,
+            $year_id,
+            $clasificacion,
+            (int)$_SESSION['dni'],
+          ]);
+        }
+        $clasificacionesActualizadas[$dni] = $clasificacion;
+      }
+    }
   }
 
   $pdo->commit();
-  echo json_encode(['ok'=>true]);
+  echo json_encode(['ok'=>true, 'clasificaciones'=>$clasificacionesActualizadas]);
 
 } catch (Throwable $e) {
   if ($pdo->inTransaction()) $pdo->rollBack();

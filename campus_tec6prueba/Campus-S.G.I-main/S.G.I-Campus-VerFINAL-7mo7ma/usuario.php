@@ -208,6 +208,7 @@ if ($user && in_array(strtolower((string)$user['rol']), ['familia','alumno','pro
                       <th>C1</th>
                       <th>C2</th>
                       <th>Final</th>
+                      <th>Instancia de intensificación</th>
                       <th>Observaciones</th>
                     </tr>
                   </thead>
@@ -218,6 +219,7 @@ if ($user && in_array(strtolower((string)$user['rol']), ['familia','alumno','pro
                         <td><?= htmlspecialchars((string)($fila['c1_num'] ?? $fila['c1_val'] ?? '—')) ?></td>
                         <td><?= htmlspecialchars((string)($fila['c2_num'] ?? $fila['c2_val'] ?? '—')) ?></td>
                         <td><?= htmlspecialchars((string)($fila['nota_final'] ?? '—')) ?></td>
+                        <td><?= htmlspecialchars((string)($fila['instancia_intensificacion'] ?? '—')) ?></td>
                         <td><?= htmlspecialchars($fila['observaciones'] ?? '') ?></td>
                       </tr>
                     <?php endforeach; ?>
