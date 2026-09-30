@@ -65,6 +65,37 @@ foreach ($pendientes as $materia) {
 }
 
 try {
+    if ($accion === 'deshacer_intento') {
+        $materiaId = (int)($payload['materia_id'] ?? 0);
+        $yearOrigenId = (int)($payload['year_origen_id'] ?? 0);
+        $instancia = trim((string)($payload['instancia'] ?? ''));
+        if (!$materiaId || !$yearOrigenId || $instancia === '') {
+            throw new InvalidArgumentException('Faltan datos para deshacer la instancia.');
+        }
+
+        $pdo->beginTransaction();
+        $stmt = $pdo->prepare(
+            "SELECT s.id
+             FROM alumno_materia_seguimiento s
+             JOIN alumno_materia_intensificacion i ON i.seguimiento_id = s.id
+             WHERE s.alumno_dni = ? AND s.materia_id = ? AND s.year_origen_id = ?
+               AND s.year_seguimiento_id = ? AND s.clasificacion = 'intensificar'
+               AND i.instancia = ?
+             LIMIT 1 FOR UPDATE"
+        );
+        $stmt->execute([$alumnoDni, $materiaId, $yearOrigenId, $yearId, $instancia]);
+        $seguimientoId = $stmt->fetchColumn();
+        if (!$seguimientoId) {
+            throw new InvalidArgumentException('La instancia ya no existe o no se puede deshacer.');
+        }
+
+        $stmt = $pdo->prepare("DELETE FROM alumno_materia_intensificacion WHERE seguimiento_id = ? AND instancia = ?");
+        $stmt->execute([(int)$seguimientoId, $instancia]);
+        $pdo->commit();
+        echo json_encode(['ok' => true]);
+        exit;
+    }
+
     if ($accion === 'guardar_clasificacion') {
         $clasificaciones = $payload['clasificaciones'] ?? [];
         if (!is_array($clasificaciones)) {

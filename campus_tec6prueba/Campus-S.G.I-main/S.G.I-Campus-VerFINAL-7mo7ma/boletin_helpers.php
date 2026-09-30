@@ -255,6 +255,7 @@ function obtenerMateriasPendientes(PDO $pdo, int $alumnoDni, int $yearActualId):
         if ($row['instancia'] !== null) {
             $pendientes[$key]['intentos'][] = [
                 'year' => (int)$row['year_seguimiento'],
+                'year_id' => (int)$row['year_seguimiento_id'],
                 'instancia' => $row['instancia'],
                 'estado' => $row['estado'],
                 'nota' => $row['nota'],

@@ -234,6 +234,7 @@ if ($rol === 'profesor') {
     .seguimiento-intento { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
     .seguimiento-intento input, .seguimiento-intento select { max-width: 190px; padding: 7px 9px; border: 1px solid #94a3b8; border-radius: 4px; }
     .seguimiento-intento button, .seguimiento-guardar { padding: 8px 12px; border: 0; border-radius: 4px; background: #0f172a; color: #fff; cursor: pointer; }
+    .seguimiento-deshacer { margin-left: 8px; padding: 4px 8px; border: 1px solid #b91c1c; border-radius: 4px; background: #fff; color: #991b1b; cursor: pointer; font-size: 12px; }
     .seguimiento-guardar { margin-top: 14px; background: #166534; }
     .seguimiento-estado { margin-top: 5px; color: #64748b; font-size: 12px; }
     .seguimiento-aviso { min-height: 20px; margin: 8px 0 0; color: #92400e; font-size: 13px; }
@@ -813,16 +814,41 @@ async function cargarIntensificaciones() {
 
         const estadoActual = !materia.habilita_recuperacion
           ? (materia.nivel === 1 ? 'En 1.º año no se habilita intensificación ni recursado.' : 'No se pudo identificar el grado; no se habilitan acciones.')
-          : (materia.intentos.length
-            ? materia.intentos.map(intento => `${intento.instancia} ${intento.year}: ${intento.estado.replace('_', ' ')}${intento.nota !== null ? ` (${intento.nota})` : ''}${intento.nota_valorativa ? ` ${intento.nota_valorativa}` : ''}`).join(' · ')
-            : (materia.clasificacion === 'intensificar'
+          : (!materia.intentos.length
+            ? (materia.clasificacion === 'intensificar'
               ? 'Seleccionada para intensificar'
-              : (materia.clasificacion === 'recursar' ? 'Debe cursar la materia durante el año completo' : 'Pendiente de clasificación')));
+              : (materia.clasificacion === 'recursar' ? 'Debe cursar la materia durante el año completo' : 'Pendiente de clasificación'))
+            : 'Instancias registradas:');
         datos.appendChild(crearTexto('div', estadoActual, 'seguimiento-estado'));
+        materia.intentos.forEach(intento => {
+          const filaIntento = crearTexto('div',
+            `${intento.instancia} ${intento.year}: ${intento.estado.replace('_', ' ')}${intento.nota !== null ? ` (${intento.nota})` : ''}${intento.nota_valorativa ? ` ${intento.nota_valorativa}` : ''}`,
+            'seguimiento-estado');
+          if (intento.year_id === YEAR_ACTUAL_ID && materia.clasificacion === 'intensificar') {
+            const deshacer = document.createElement('button');
+            deshacer.type = 'button';
+            deshacer.className = 'seguimiento-deshacer';
+            deshacer.textContent = 'Deshacer resultado';
+            deshacer.addEventListener('click', async () => {
+              if (!window.confirm(`¿Deshacer la instancia ${intento.instancia} de ${materia.materia}?`)) return;
+              await guardarIntensificacion({
+                accion: 'deshacer_intento',
+                alumno_dni: alumno.dni,
+                curso_id: cursoId,
+                materia_id: materia.materia_id,
+                year_origen_id: materia.year_id,
+                instancia: intento.instancia
+              });
+            });
+            filaIntento.appendChild(deshacer);
+          }
+          datos.appendChild(filaIntento);
+        });
 
         const intentoForm = document.createElement('form');
         intentoForm.className = 'seguimiento-intento';
-        intentoForm.hidden = !materia.habilita_recuperacion || materia.clasificacion !== 'intensificar' || !materia.seguimiento_id;
+        intentoForm.hidden = !materia.habilita_recuperacion || materia.clasificacion !== 'intensificar'
+          || !materia.seguimiento_id || materia.resuelta;
         const instancia = document.createElement('input');
         instancia.type = 'text';
         instancia.name = 'instancia';

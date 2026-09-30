@@ -50,7 +50,10 @@ $stmt->execute([$cursoId, $yearId]);
 $alumnos = [];
 foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $alumno) {
     $materias = obtenerMateriasPendientes($pdo, (int)$alumno['alumno_dni'], $yearId);
-    $materias = array_values(array_filter($materias, static fn($materia) => !$materia['resuelta']));
+    $materias = array_values(array_filter(
+        $materias,
+        static fn($materia) => !$materia['resuelta'] || !empty($materia['intentos'])
+    ));
     if (!$materias) continue;
 
     foreach ($materias as &$materia) {
